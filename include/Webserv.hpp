@@ -1,8 +1,11 @@
 #ifndef WEBSERV_HPP
 # define WEBSERV_HPP
-# include <iostream>
-# include <sys/socket.h>
-# include <netinet/in.h>
+#include <cstring>
+#include <iostream>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <arpa/inet.h>
 
 struct Socket {
     int fd;
