@@ -6,6 +6,8 @@
 #include <fstream>
 #include <sstream>
 
+std::vector<ServerConfig>	ConfigParser(std::string configpath);
+
 std::vector<std::string>	tokenizer(const std::string &filepath);
 
 class ConfigException : public std::runtime_error
