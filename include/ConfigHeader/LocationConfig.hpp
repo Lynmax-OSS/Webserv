@@ -1,4 +1,4 @@
-#ifndef LOCATIONCONGFIG_HPP
+#ifndef LOCATIONCONFIG_HPP
 # define LOCATIONCONFIG_HPP
 # include <vector>
 # include <iostream>
@@ -11,6 +11,8 @@ struct LocationConfig
 	bool autoindex;
 	std::string cgi_extension;
 	std::string cgi_path;
+
+	LocationConfig() : autoindex(false) {}
 };
 
 
