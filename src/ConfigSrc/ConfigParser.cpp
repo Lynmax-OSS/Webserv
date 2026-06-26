@@ -1,5 +1,43 @@
 #include "../../include/ConfigHeader/ConfigParser.hpp"
 
+LocationConfig	parseLocationBlock(std::vector<std::string> tokens, size_t &i)
+{
+	LocationConfig local;
+
+	local.path = tokens[++i];
+	if (tokens[++i] != "{")
+		throw std::runtime_error("Expected '{' after location path");
+	++i;
+	while (i < tokens.size() && tokens[i] != "}")
+	{
+		if (tokens[i] == "root")
+			local.root = tokens[++i];
+		else if (tokens[i] == "allowed_methods")
+		{
+			++i;
+			while (i < tokens.size() && tokens[i] != "}" 
+				   && tokens[i] != "autoindex"
+				   && tokens[i] != "root"
+				   && tokens[i] != "cgi_extension"
+				   && tokens[i] != "cgi_path") {
+				local.allowed_methods.push_back(tokens[i++]);
+			}
+			continue;
+		}
+		else if (tokens[i] == "autoindex")
+		{
+			i++;
+			if (tokens[i] != "on" && tokens[i] != "off")
+				throw std::runtime_error("Invalid autoindex value: " + tokens[i]);
+			local.autoindex = (tokens[i] == "on");
+		}
+		else if (tokens[i] == "cgi_extension")
+			local.cgi_extension = tokens[++i];
+		else if (tokens[i] == "cgi_path")
+			local.cgi_path == tokens[++i];
+	}
+}
+
 ServerConfig	parseServerBlock(const std::vector<std::string> &tokens, size_t &i)
 {
 	ServerConfig config;
