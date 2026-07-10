@@ -1,11 +1,19 @@
 #include "../../include/ConfigHeader/ConfigParser.hpp"
 
+bool	fileExitsCheck(const std::string &path)
+{
+	struct stat buffer;
+	return (stat(path.c_str(), &buffer) == 0);
+}
+
 void	validateLocation(LocationConfig local)
 {
 	if (local.path.empty() || local.path[0] != '/')
 		throw std::runtime_error("No path to directory");
 	if (local.cgi_extension.empty() || local.cgi_path.empty())
 		throw std::runtime_error("Both cgi path and extenstion must be config");
+	if (!fileExitsCheck(local.cgi_path))
+		throw std::runtime_error("File does not exist: " + local.cgi_path);
 	for (int i = 0; i < local.allowed_methods.size(); i++)
 	{
 		const std::string &m = local.allowed_methods[i];
@@ -22,7 +30,7 @@ void	validateError(const ServerConfig &config)
 	{
 		if (it->first < 400 && it->first > 599)
 			throw std::runtime_error("Invalid error code: " + it->first);
-		if (it->second.empty())
+		if (!fileExitsCheck(it->second))
 			throw std::runtime_error("No error page path");
 	}
 }
