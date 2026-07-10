@@ -14,6 +14,19 @@ void	validateLocation(LocationConfig local)
 	}
 }
 
+void	validateError(const ServerConfig &config)
+{
+	std::map<int, std::string> pages = config.errors;
+
+	for (std::map<int, std::string>::const_iterator it = pages.begin(); it != pages.end(); it++)
+	{
+		if (it->first < 400 && it->first > 599)
+			throw std::runtime_error("Invalid error code: " + it->first);
+		if (it->second.empty())
+			throw std::runtime_error("No error page path");
+	}
+}
+
 void	validateServer(ServerConfig config)
 {
 	if (config.port < 1 || config.port > 65535)
@@ -22,6 +35,9 @@ void	validateServer(ServerConfig config)
 		throw std::runtime_error("No root directive to be found");
 	else if (config.locations.empty())
 		throw std::runtime_error("No location directive to be found");
+	if (config.index.empty())
+		throw std::runtime_error("No index files specified");
+	validateError(config);
 	for (int i = 0; i < config.locations.size(); i++)
 		validateLocation(config.locations[i]);
 }
