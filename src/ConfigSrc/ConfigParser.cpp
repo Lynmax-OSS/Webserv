@@ -1,4 +1,5 @@
 #include "../../include/ConfigHeader/ConfigParser.hpp"
+#include "../../include/Webserv.hpp"
 
 LocationConfig	parseLocationBlock(std::vector<std::string> tokens, size_t &i)
 {
@@ -38,6 +39,24 @@ LocationConfig	parseLocationBlock(std::vector<std::string> tokens, size_t &i)
 	}
 }
 
+size_t	parseSize(const std::string &val)
+{
+	char *end;
+	unsigned long	num = std::strtoul(val.c_str(), &end, 10);
+
+	if (end == val.c_str())
+		throw std::runtime_error("Invalid size value: " + val);
+
+	if (*end == 'M' || *end == 'm')
+		return (num * 1024 * 1024);
+	if (*end == 'K' || *end == 'k')
+		return (num * 1024);
+	if (*end == 'G' || *end == 'g')
+		return (num * 1024 * 1024 * 1024);
+	if (*end == '\0')
+		return (num);
+}
+
 ServerConfig	parseServerBlock(const std::vector<std::string> &tokens, size_t &i)
 {
 	ServerConfig config;
@@ -52,6 +71,13 @@ ServerConfig	parseServerBlock(const std::vector<std::string> &tokens, size_t &i)
 			config.root = tokens[++i];
 		else if (tokens[i] == "location")
 			config.locations.push_back(parseLocationBlock(tokens, i));
+		else if (tokens[i] == "error_page")
+		{
+			int code = std::atoi(tokens[++i].c_str());
+			config.errors[code] = tokens[++i];
+		}
+		else if (tokens[i] == "client_max_body_size")
+			config.client_max_body_size = parseSize(tokens[++i]);
 		i++;
 	}
 }
@@ -77,6 +103,7 @@ std::vector<ServerConfig>	parse(const std::vector<std::string>& tokens)
 std::vector<ServerConfig>	ConfigParser(std::string configpath)
 {
 	std::vector<std::string> tokens = tokenizer(configpath);
-
-
+	std::vector<ServerConfig> configs = parse(tokens);
+	ConfigValidator(configs);
+	return (configs);
 }

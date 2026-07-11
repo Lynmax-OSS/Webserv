@@ -8,7 +8,7 @@
 # include <sys/stat.h>
 
 std::vector<ServerConfig>	ConfigParser(std::string configpath);
-
+void						ConfigValidator(std::vector<ServerConfig> &configs);
 std::vector<std::string>	tokenizer(const std::string &filepath);
 
 class ConfigException : public std::runtime_error

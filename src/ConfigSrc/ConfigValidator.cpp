@@ -26,6 +26,8 @@ void	validateError(const ServerConfig &config)
 {
 	std::map<int, std::string> pages = config.errors;
 
+	if (pages.empty())
+		throw std::runtime_error("No error page to be found");
 	for (std::map<int, std::string>::const_iterator it = pages.begin(); it != pages.end(); it++)
 	{
 		if (it->first < 400 && it->first > 599)
@@ -45,9 +47,12 @@ void	validateServer(ServerConfig config)
 		throw std::runtime_error("No location directive to be found");
 	if (config.index.empty())
 		throw std::runtime_error("No index files specified");
+	else if (config.client_max_body_size == 0)
+		throw std::runtime_error("Max body size cannot be 0");
 	validateError(config);
 	for (int i = 0; i < config.locations.size(); i++)
 		validateLocation(config.locations[i]);
+	
 }
 
 void	checkDupPort(std::vector<ServerConfig> config)
