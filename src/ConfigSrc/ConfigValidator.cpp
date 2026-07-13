@@ -30,8 +30,12 @@ void	validateError(const ServerConfig &config)
 		throw std::runtime_error("No error page to be found");
 	for (std::map<int, std::string>::const_iterator it = pages.begin(); it != pages.end(); it++)
 	{
-		if (it->first < 400 && it->first > 599)
-			throw std::runtime_error("Invalid error code: " + it->first);
+		if (it->first < 400 || it->first > 599)
+		{
+			std::ostringstream oss;
+			oss << "Invalid error code: " << it->first;
+			throw std::runtime_error(oss.str());
+		}
 		if (!fileExitsCheck(it->second))
 			throw std::runtime_error("No error page path");
 	}
@@ -40,7 +44,11 @@ void	validateError(const ServerConfig &config)
 void	validateServer(ServerConfig config)
 {
 	if (config.port < 1 || config.port > 65535)
-		throw std::runtime_error("Invalid port number: " + config.port);
+	{
+		std::ostringstream oss;
+		oss << "Invalid port number: " << config.port;
+		throw std::runtime_error(oss.str());
+	}
 	else if (config.root.empty())
 		throw std::runtime_error("No root directive to be found");
 	else if (config.locations.empty())
