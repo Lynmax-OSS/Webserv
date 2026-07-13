@@ -6,7 +6,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-#include "include/ConfigHeader/ConfigParser.hpp"
+#include "ConfigHeader/ConfigParser.hpp"
 
 struct Socket {
     int fd;
