@@ -35,8 +35,11 @@ LocationConfig	parseLocationBlock(std::vector<std::string> tokens, size_t &i)
 		else if (tokens[i] == "cgi_extension")
 			local.cgi_extension = tokens[++i];
 		else if (tokens[i] == "cgi_path")
-			local.cgi_path == tokens[++i];
+			local.cgi_path = tokens[++i];
+		i++;
 	}
+	i++;
+	return (local);
 }
 
 size_t	parseSize(const std::string &val)
@@ -55,31 +58,59 @@ size_t	parseSize(const std::string &val)
 		return (num * 1024 * 1024 * 1024);
 	if (*end == '\0')
 		return (num);
+	throw std::runtime_error("Invalid size suffix: " + val);
 }
 
-ServerConfig	parseServerBlock(const std::vector<std::string> &tokens, size_t &i)
+ServerConfig parseServerBlock(const std::vector<std::string> &tokens, size_t &i)
 {
 	ServerConfig config;
 
 	while (i < tokens.size() && tokens[i] != "}")
 	{
 		if (tokens[i] == "listen")
-			config.port = std::atoi(tokens[++i].c_str());
+		{
+			char *end;
+			long val = std::strtol(tokens[++i].c_str(), &end, 10);
+			if (*end != '\0')
+				throw std::runtime_error("Invalid port: " + tokens[i]);
+			config.port = static_cast<int>(val);
+		}
 		else if (tokens[i] == "server_name")
 			config.server_name = tokens[++i];
 		else if (tokens[i] == "root")
 			config.root = tokens[++i];
+		else if (tokens[i] == "index")
+		{
+			++i;
+			while (i < tokens.size() && tokens[i] != "}"
+				&& tokens[i] != "listen"
+				&& tokens[i] != "server_name"
+				&& tokens[i] != "root"
+				&& tokens[i] != "error_page"
+				&& tokens[i] != "client_max_body_size"
+				&& tokens[i] != "location")
+				config.index.push_back(tokens[i++]);
+			continue;
+		}
 		else if (tokens[i] == "location")
+		{
 			config.locations.push_back(parseLocationBlock(tokens, i));
+			continue;
+		}
 		else if (tokens[i] == "error_page")
 		{
-			int code = std::atoi(tokens[++i].c_str());
-			config.errors[code] = tokens[++i];
+			char *end;
+			long code = std::strtol(tokens[++i].c_str(), &end, 10);
+			if (*end != '\0')
+				throw std::runtime_error("Invalid error code");
+			config.errors[static_cast<int>(code)] = tokens[++i];
 		}
 		else if (tokens[i] == "client_max_body_size")
 			config.client_max_body_size = parseSize(tokens[++i]);
 		i++;
 	}
+	i++;
+	return (config);
 }
 
 std::vector<ServerConfig>	parse(const std::vector<std::string>& tokens)
@@ -97,12 +128,16 @@ std::vector<ServerConfig>	parse(const std::vector<std::string>& tokens)
 		else
 			throw std::runtime_error("Unexpected token: " + tokens[i]);
 	}
-	
+	return (configs);
 }
 
 std::vector<ServerConfig>	ConfigParser(std::string configpath)
 {
 	std::vector<std::string> tokens = tokenizer(configpath);
+	// for (int i = 0; !tokens[i].empty(); i++)
+	// {
+	// 	std::cout << tokens[i] << std::endl;
+	// }
 	std::vector<ServerConfig> configs = parse(tokens);
 	ConfigValidator(configs);
 	return (configs);
