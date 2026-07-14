@@ -1,7 +1,7 @@
 #include "../../include/NetworkHeader/SocketManager.hpp"
 #include "../../include/NetworkHeader/ServerSocket.hpp"
 
-const std::vector<ServerSocket*>& SocketManager::getSocket()
+const std::vector<ServerSocket*> &SocketManager::getSocket() const
 {
 	return (_sockets);
 }

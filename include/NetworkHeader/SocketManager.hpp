@@ -7,7 +7,7 @@ class SocketManager
 	public: 
 		SocketManager(const std::vector<ServerConfig> &configs);
 		~SocketManager();
-		const std::vector<ServerConfig*>& getSocket() const;
+		const std::vector<ServerSocket*>& getSocket() const;
 	private:
 		std::vector<ServerSocket*> _sockets;
 
