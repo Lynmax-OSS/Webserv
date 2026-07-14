@@ -1,5 +1,5 @@
-#ifndef SERVERSOCKET
-# define SERVERSOCKET
+#ifndef SERVERSOCKET_HPP
+# define SERVERSOCKET_HPP
 # include "../ConfigHeader/ConfigParser.hpp"
 
 
