@@ -3,12 +3,12 @@
 
 ServerSocket::ServerSocket(const ServerConfig &config): fd(-1)
 {
-	Socket server(AF_INET, SOCK_STREAM, 0);
+	fd = socket(AF_INET, SOCK_STREAM, 0);
 
-	if (server.fd == -1)
+	if (fd == -1)
 		throw std::runtime_error ("socket failed");
 	int opt = 1;
-	if (setsockopt(server.fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1)
+	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1)
 		throw (std::runtime_error("setsockopt failed"));
 	sockaddr_in addr{};
 
@@ -16,9 +16,9 @@ ServerSocket::ServerSocket(const ServerConfig &config): fd(-1)
 	addr.sin_port = htons(config.port);
 	addr.sin_addr.s_addr =  INADDR_ANY;
 
-	if (bind(server.fd, (sockaddr*)&addr, sizeof(addr)) == -1)
+	if (bind(fd, (sockaddr*)&addr, sizeof(addr)) == -1)
 		throw (std::runtime_error("bind failed"));
-	if (listen(server.fd, 10) == -1)
+	if (listen(fd, 10) == -1)
 		throw (std::runtime_error("listen failed"));
 }
 
