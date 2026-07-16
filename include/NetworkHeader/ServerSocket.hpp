@@ -11,6 +11,7 @@ class ServerSocket
 		~ServerSocket();
 
 	private:
+		ServerSocket();
 		ServerSocket(const ServerSocket &other);
 		ServerSocket &operator=(const ServerSocket &other);
 

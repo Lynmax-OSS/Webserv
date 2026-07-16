@@ -11,6 +11,7 @@ class SocketManager
 	private:
 		std::vector<ServerSocket*> _sockets;
 
+		SocketManager();
 		SocketManager(const SocketManager &other);
 		SocketManager &operator=(const SocketManager &other);
 };
