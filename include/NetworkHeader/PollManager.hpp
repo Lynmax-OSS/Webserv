@@ -12,6 +12,7 @@ class PollManager
 		~PollManager();
 		PollManager(const PollManager &other);
 		PollManager &operator=(const PollManager &other);
+		void	run();
 
 	private:
 		SocketManager	&_manager;

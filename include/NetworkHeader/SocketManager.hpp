@@ -1,6 +1,7 @@
 #ifndef SOCKETMANAGER_HPP
-# define SOCKETMANGER_HPP
+# define SOCKETMANAGER_HPP
 # include "../ConfigHeader/ConfigParser.hpp"
+#include "../NetworkHeader/ServerSocket.hpp"
 
 class SocketManager
 {
