@@ -5,7 +5,8 @@ CXX=c++
 CFLAG= -Wall -Werror -Wextra -std=c++98
 
 SRCS= src/main.cpp src/ConfigSrc/ConfigParser.cpp src/ConfigSrc/ConfigValidator.cpp \
-	  src/ConfigSrc/Tokenizer.cpp
+	  src/ConfigSrc/Tokenizer.cpp src/NetworkSrc/PollManager.cpp src/NetworkSrc/ServerSocket.cpp\
+	  src/NetworkSrc/SocketManager.cpp
 
 OBJS=$(SRCS:.cpp=.o)
 
