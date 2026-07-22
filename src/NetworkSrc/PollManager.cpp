@@ -83,6 +83,8 @@ void	PollManager::handleClientRead(int client_fd)
 		return;
 	}
 	std::cout << "Received:\n" << buf << "\n";
+
+	//Here is where we parse client response for next team member
 	std::string response =
 		"HTTP/1.1 200 OK\r\n"
 		"Content-Type: text/html\r\n"
