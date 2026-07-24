@@ -82,16 +82,31 @@ void	PollManager::handleClientRead(int client_fd)
 		removeFd(client_fd);
 		return;
 	}
-	std::cout << "Received:\n" << buf << "\n";
+	//Below this point is where server and client interactions begin
+	std::ifstream file("./www/index.html");// this is hardcoded 
+	std::string body;
+	if (file.is_open())
+	{
+		std::string line;
+		while (std::getline(file, line))
+		{
+			body += line;
+			body += "\n";
+		}
+	}
+	else
+		body = "<h1>404 Not Found</h1>"; // there is no proper 404 page so this is shrimple (can implement your own)
 
-	//Here is where we parse client response for next team member
-	std::string response =
-		"HTTP/1.1 200 OK\r\n"
-		"Content-Type: text/html\r\n"
-		"Connection: close\r\n"
-		"\r\n"
-		"<h1>Hello from webserv!</h1>";
-	write(client_fd, response.c_str(), response.size());
+	std::ostringstream response;
+	response << "HTTP/1.1 200 OK\r\n"
+			 << "Content-Type: text/html\r\n"
+			 << "Content-Length: " << body.size() << "\r\n"
+			 << "Connection: close\r\n"
+			 << "\r\n"
+			 << body;
+
+	std::string res = response.str();
+	write(client_fd, res.c_str(), res.size());
 	close(client_fd);
 	removeFd(client_fd);
 }
