@@ -1,19 +1,28 @@
-NAME= webserv
+CXX = c++
+CXXFLAGS = -Wall -Wextra -Werror -std=c++98
+INC = -Iinclude
 
-CXX=c++
+NAME = webserv
 
-CFLAG= -Wall -Werror -Wextra -std=c++98
+SRCS = src/main.cpp \
+       src/ParserSrc/HttpParser.cpp \
+	   src/ParserSrc/ClientConnection.cpp
 
-SRCS= src/main.cpp src/ConfigSrc/ConfigParser.cpp src/ConfigSrc/ConfigValidator.cpp \
-	  src/ConfigSrc/Tokenizer.cpp src/NetworkSrc/PollManager.cpp src/NetworkSrc/ServerSocket.cpp\
-	  src/NetworkSrc/SocketManager.cpp
+# SRCS = src/main.cpp \
+#        src/ParserSrc/HttpParser.cpp \
+#        src/ConfigSrc/ConfigParser.cpp \
+#        src/ConfigSrc/ConfigValidator.cpp \
+#        src/ConfigSrc/Tokenizer.cpp \
+#        src/NetworkSrc/PollManager.cpp \
+#        src/NetworkSrc/ServerSocket.cpp \
+#        src/NetworkSrc/SocketManager.cpp
 
-OBJS=$(SRCS:.cpp=.o)
+OBJS = $(SRCS:.cpp=.o)
 
 all: $(NAME)
 
 $(NAME): $(OBJS)
-	$(CXX) $(CFLAG) -o $@ $^
+	$(CXX) $(CXXFLAGS) $(INC) -o $(NAME) $(OBJS)
 
 clean:
 	rm -f $(OBJS)
