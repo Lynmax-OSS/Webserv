@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webserv</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background-color: #f4f4f4;
+        }
+        h1 { color: #333; }
+        h2 { color: #555; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+        .section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            margin: 8px 0;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #333;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover { background-color: #555; }
+        #response {
+            margin-top: 10px;
+            padding: 10px;
+            background: #eee;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>Webserv Test Page</h1>
+
+    <!-- GET -->
+    <div class="section">
+        <h2>GET Request</h2>
+        <p>Fetch a file from the server by path.</p>
+        <input type="text" id="get-path" placeholder="/index.html" value="/index.html"/>
+        <button onclick="doGet()">Send GET</button>
+        <div id="get-response"></div>
+    </div>
+
+    <!-- POST / file upload -->
+    <div class="section">
+        <h2>POST - Upload File</h2>
+        <p>Upload a file to the server.</p>
+        <input type="file" id="upload-file"/>
+        <button onclick="doUpload()">Upload</button>
+        <div id="upload-response"></div>
+    </div>
+
+    <!-- DELETE -->
+    <div class="section">
+        <h2>DELETE Request</h2>
+        <p>Delete a file from the server by path.</p>
+        <input type="text" id="delete-path" placeholder="/uploads/filename.txt"/>
+        <button onclick="doDelete()">Send DELETE</button>
+        <div id="delete-response"></div>
+    </div>
+
+    <script>
+        function doGet() {
+            var path = document.getElementById("get-path").value;
+            var out  = document.getElementById("get-response");
+            fetch(path, { method: "GET" })
+                .then(function(res) {
+                    return res.text().then(function(text) {
+                        out.textContent = "Status: " + res.status + "\n" + text;
+                    });
+                })
+                .catch(function(err) { out.textContent = "Error: " + err; });
+        }
+
+        function doUpload() {
+            var file = document.getElementById("upload-file").files[0];
+            var out  = document.getElementById("upload-response");
+            if (!file) { out.textContent = "No file selected"; return; }
+
+            var formData = new FormData();
+            formData.append("file", file);
+
+            fetch("/upload", { method: "POST", body: formData })
+                .then(function(res) {
+                    return res.text().then(function(text) {
+                        out.textContent = "Status: " + res.status + "\n" + text;
+                    });
+                })
+                .catch(function(err) { out.textContent = "Error: " + err; });
+        }
+
+        function doDelete() {
+            var path = document.getElementById("delete-path").value;
+            var out  = document.getElementById("delete-response");
+            fetch(path, { method: "DELETE" })
+                .then(function(res) {
+                    return res.text().then(function(text) {
+                        out.textContent = "Status: " + res.status + "\n" + text;
+                    });
+                })
+                .catch(function(err) { out.textContent = "Error: " + err; });
+        }
+    </script>
+</body>
+</html>

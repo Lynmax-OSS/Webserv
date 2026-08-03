@@ -1,0 +1,20 @@
+#ifndef SOCKETMANAGER_HPP
+# define SOCKETMANAGER_HPP
+# include "../ConfigHeader/ConfigParser.hpp"
+#include "../NetworkHeader/ServerSocket.hpp"
+
+class SocketManager
+{
+	public: 
+		SocketManager(const std::vector<ServerConfig> &configs);
+		~SocketManager();
+		const std::vector<ServerSocket*>& getSocket() const;
+	private:
+		std::vector<ServerSocket*> _sockets;
+
+		SocketManager();
+		SocketManager(const SocketManager &other);
+		SocketManager &operator=(const SocketManager &other);
+};
+
+#endif
