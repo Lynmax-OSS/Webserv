@@ -137,14 +137,76 @@ void	PollManager::handleClientRead(int client_fd)
 			std::string error = error_stream.str();
 			write(client_fd, error.c_str(), error.size());
         } else {
-            // ✅ Valid request - pass to Member 3
-            std::cout << "✅ Received: " << req.method << " " << req.path << std::endl;
-            
-            // Member 3 will handle the request and fill conn.getWriteBuffer()
-            // handleRequest(req, conn.getWriteBuffer());
+			// ✅ Valid request - pass to Member 3
+			std::cout << "✅ Received: " << req.method << " " << req.path << std::endl;
+
+			// ---------- TEMPORARY HANDLER (for testing) ----------
+			if (req.method == "GET") {
+				// Hardcoded root for now (you can change later to use config)
+				std::string base_path = "./www";
+				std::string file_path = base_path + req.path;
+
+				// If the path ends with '/', append index.html
+				if (!file_path.empty() && file_path[file_path.size() - 1] == '/')
+					file_path += "index.html";
+
+				std::ifstream file(file_path.c_str(), std::ios::binary);
+				if (file.is_open()) {
+					std::string body((std::istreambuf_iterator<char>(file)),
+									std::istreambuf_iterator<char>());
+					file.close();
+
+					// Determine basic content type
+					std::string content_type = "text/html";
+					if (file_path.find(".css") != std::string::npos)
+						content_type = "text/css";
+					else if (file_path.find(".js") != std::string::npos)
+						content_type = "application/javascript";
+					else if (file_path.find(".png") != std::string::npos)
+						content_type = "image/png";
+					else if (file_path.find(".jpg") != std::string::npos ||
+							file_path.find(".jpeg") != std::string::npos)
+						content_type = "image/jpeg";
+					else if (file_path.find(".gif") != std::string::npos)
+						content_type = "image/gif";
+					// ... add more if needed
+
+					// Build HTTP response
+					std::ostringstream response;
+					response << "HTTP/1.1 200 OK\r\n"
+							<< "Content-Type: " << content_type << "\r\n"
+							<< "Content-Length: " << body.size() << "\r\n"
+							<< "Connection: keep-alive\r\n"
+							<< "\r\n"
+							<< body;
+
+					conn.getWriteBuffer() = response.str();
+				} else {
+					// File not found → 404
+					std::ostringstream response;
+					response << "HTTP/1.1 404 Not Found\r\n"
+							<< "Content-Type: text/html\r\n"
+							<< "Content-Length: 0\r\n"
+							<< "Connection: close\r\n"
+							<< "\r\n";
+					conn.getWriteBuffer() = response.str();
+					conn.setKeepAlive(false); // close after 404
+				}
+			} else {
+				// Only GET is handled for now – return 405 for other methods
+				std::ostringstream response;
+				response << "HTTP/1.1 405 Method Not Allowed\r\n"
+						<< "Content-Type: text/html\r\n"
+						<< "Content-Length: 0\r\n"
+						<< "Connection: close\r\n"
+						<< "\r\n";
+				conn.getWriteBuffer() = response.str();
+				conn.setKeepAlive(false);
+			}
             
             // Send response from write buffer
-            if (!conn.getWriteBuffer().empty()) {
+            if (!conn.getWriteBuffer().empty()) 
+			{
                 write(client_fd, conn.getWriteBuffer().c_str(), conn.getWriteBuffer().size());
                 conn.getWriteBuffer().clear();
             }
