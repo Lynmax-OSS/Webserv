@@ -37,7 +37,9 @@ ________________________________________________________________________________
 
 # Inputs:
 > req – the parsed HttpRequest (see struct below).
+
 > configs – all server configurations parsed from the config file.
+
 > response – a string you must fill with the complete HTTP response.
 
 # Output:
@@ -168,7 +170,7 @@ ________________________________________________________________________________
 
 4. Handle_Redirects_(return directive)
 
->If best has a return_code (e.g., 301) and return_url, send a response with that status and a Location header.
+> If best has a return_code (e.g., 301) and return_url, send a response with that status and a Location header.
 
 ```cpp
     if (best && best->return_code != 0) {
@@ -186,33 +188,43 @@ ________________________________________________________________________________
 5. Route_Based_on_Method
 
 ## GET (static file / directory listing)
-
 > Build the file path: root + req.path. If req.path ends with /, append the first index file (e.g., server->index[0]).
+
 > If the target is a directory and autoindex is on, generate an HTML listing.
+
 > If the file exists, read it, determine Content-Type from extension, and send 200 OK.
+
 > If not found, send 404 Not Found using a custom error page if available.
 
 ## POST (upload)
 > Save the request body to a file inside the appropriate root (e.g., ./uploads).
+
 > Use the filename from Content-Disposition header if present, or generate a name.
+
 > Return 201 Created or 200 OK.
 
 ## DELETE
 > Remove the file specified by req.path (relative to the root).
+
 > Return 204 No Content or 200 OK.
 
 ## CGI (e.g., /cgi-bin/script.py)
 > If the location has cgi_extension and req.path ends with that extension:
+    
     ~ Use pipe(), fork(), execve() to run cgi_path (e.g., /usr/bin/python3).
+    
     ~ Pass environment: QUERY_STRING, REQUEST_METHOD, CONTENT_LENGTH, CONTENT_TYPE, etc.
+    
     ~ Read the script’s stdout; this is the response body (may include headers – you may need to parse them).
+    
     ~ Return the output as the response.
 
-```cpp
+
 6.Error_Pages
 
 > For errors like 404, 403, 500, check server->errors for a custom page:
 
+```cpp
     std::map<int, std::string>::const_iterator it = server->errors.find(status);
     if (it != server->errors.end()) {
         // read file it->second and use as body
@@ -222,10 +234,14 @@ ________________________________________________________________________________
 ```
 7.Build_the_Response
 
->Always set:
+> Always set:
+    
     ~ Content-Type (if body is present)
+    
     ~ Content-Length
+    
     ~ Connection (based on req.keep_alive – but if you decide to close, set "close")
+    
     ~ Status line with reason phrase (200 OK, 404 Not Found, etc.)
 
 ```cpp
@@ -252,15 +268,19 @@ Do not touch the event loop, parser, or socket code.
 ______________________________________________________________________________________
 
 # Testing Your Implementation
->> Compile: make re
+> Compile: make re
 
->> Run: ./webserv configs/default.conf
+> Run: ./webserv configs/default.conf
 
->> Test endpoints:
+> Test endpoints:
     ~ curl -v http://localhost:8080/ → serves index.html
+
     ~ curl -v http://localhost:8080/images/logo.png → serves from /images root
+    
     ~ curl -v -X POST -F "file=@test.txt" http://localhost:8080/upload → uploads file
+    
     ~ curl -v -X DELETE http://localhost:8080/uploads/test.txt → deletes file
+    
     ~ curl -v http://localhost:8080/cgi-bin/test.py → runs CGI script
 ______________________________________________________________________________________
 
