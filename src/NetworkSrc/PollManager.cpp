@@ -66,6 +66,7 @@ void	PollManager::handleNewConnections(int server_fd)
 		return;
 	}
 	std::cout << "Client connected on fd " << client_fd << "\n";
+	_clients[client_fd] = ClientConnection(client_fd); //q - create clientconnection
 	addFd(client_fd, POLLIN | POLLOUT);
 }
 
@@ -82,33 +83,83 @@ void	PollManager::handleClientRead(int client_fd)
 		removeFd(client_fd);
 		return;
 	}
-	//Below this point is where server and client interactions begin
-	std::ifstream file("./www/index.html");// this is hardcoded 
-	std::string body;
-	if (file.is_open())
-	{
-		std::string line;
-		while (std::getline(file, line))
-		{
-			body += line;
-			body += "\n";
-		}
-	}
-	else
-		body = "<h1>404 Not Found</h1>"; // there is no proper 404 page so this is shrimple (can implement your own)
+	// //Below this point is where server and client interactions begin
+	// std::ifstream file("./www/index.html");// this is hardcoded 
+	// std::string body;
+	// if (file.is_open())
+	// {
+	// 	std::string line;
+	// 	while (std::getline(file, line))
+	// 	{
+	// 		body += line;
+	// 		body += "\n";
+	// 	}
+	// }
+	// else
+	// 	body = "<h1>404 Not Found</h1>"; // there is no proper 404 page so this is shrimple (can implement your own)
 
-	std::ostringstream response;
-	response << "HTTP/1.1 200 OK\r\n"
-			 << "Content-Type: text/html\r\n"
-			 << "Content-Length: " << body.size() << "\r\n"
-			 << "Connection: close\r\n"
-			 << "\r\n"
-			 << body;
+	// std::ostringstream response;
+	// response << "HTTP/1.1 200 OK\r\n"
+	// 		 << "Content-Type: text/html\r\n"
+	// 		 << "Content-Length: " << body.size() << "\r\n"
+	// 		 << "Connection: close\r\n"
+	// 		 << "\r\n"
+	// 		 << body;
 
-	std::string res = response.str();
-	write(client_fd, res.c_str(), res.size());
-	close(client_fd);
-	removeFd(client_fd);
+	// std::string res = response.str();
+	// write(client_fd, res.c_str(), res.size());
+	// close(client_fd);
+	// removeFd(client_fd);
+	
+	//below this is edited by qhaby
+    // ✅ Feed data to parser
+    ClientConnection& conn = _clients[client_fd];
+    conn.getParser().feed(std::string(buf, bytes));
+    conn.updateActivity();  // Reset timeout timer
+    
+    // ✅ Check if request is complete
+    if (conn.getParser().isComplete()) {
+        const HttpRequest& req = conn.getParser().getRequest();
+        
+        // Check for parsing errors
+        if (req.error_code != 0) {
+            // Send error response (or let Member 3 handle)
+            std::string error = "HTTP/1.1 " + std::to_string(req.error_code) + " Error\r\n\r\n";
+            write(client_fd, error.c_str(), error.size());
+        } else {
+            // ✅ Valid request - pass to Member 3
+            std::cout << "✅ Received: " << req.method << " " << req.path << std::endl;
+            
+            // Member 3 will handle the request and fill conn.getWriteBuffer()
+            // handleRequest(req, conn.getWriteBuffer());
+            
+            // Send response from write buffer
+            if (!conn.getWriteBuffer().empty()) {
+                write(client_fd, conn.getWriteBuffer().c_str(), conn.getWriteBuffer().size());
+                conn.getWriteBuffer().clear();
+            }
+        }
+        
+        // ✅ Handle keep-alive
+        if (req.keep_alive) {
+            conn.setKeepAlive(true);
+            conn.getParser().reset();  // Ready for next request
+            // Keep socket open!
+        } else {
+            conn.setKeepAlive(false);
+			//--------------------------------------
+			//✅so when the poll() is still watching that file descriptor until you call removeFd()
+			// you close() it, so the FD becomes invalid
+			//then removeFd() tries to remove it, which might;
+			//  access invalid memory, 
+			// remove the wrong FD if the number was reused and 
+			// cause undefined behaviour
+			// so I swapped the removeFd() ad close() positions
+			removeFd(client_fd);
+            close(client_fd);
+            _clients.erase(client_fd);
+        }
+    }
 }
 
 void PollManager::run()
@@ -116,7 +167,25 @@ void PollManager::run()
 	std::cout << "Server running...\n";
 	while (true)
 	{
-		int ready = poll(_poll_fds.data(), _poll_fds.size(), -1);
+		int ready = poll(_poll_fds.data(), _poll_fds.size(), 1000);
+		
+        // -q- ✅ Check for timeouts on clients
+        time_t now = time(NULL);
+        for (std::map<int, ClientConnection>::iterator it = _clients.begin(); it != _clients.end();) 
+		{
+			if (it->second.isTimeout(now, 60)) 
+			{  // 60 second timeout
+				std::cout << "Timeout on fd " << it->first << std::endl;
+				close(it->first);
+				removeFd(it->first);
+				_clients.erase(it++);
+			} 
+			else 
+			{
+				++it;
+			}
+		}
+
 		if (ready == -1)
 			throw std::runtime_error("poll() failed");
 
