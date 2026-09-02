@@ -299,4 +299,4 @@ ________________________________________________________________________________
 
 # Final Note
 
-# https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExdmt0aGx1N282N253aDRzd3VsZnlsY3h6Y2dwdm8zaXFrYTFha28xbSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/op4n9nZWhQiZ2/giphy.gif
+![alt text](image.png)
