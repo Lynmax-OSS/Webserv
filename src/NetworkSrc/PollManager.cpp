@@ -16,7 +16,10 @@ PollManager::PollManager(const PollManager &other): _manager(other._manager), _p
 
 PollManager &PollManager::operator=(const PollManager &other)
 {
-	*this = other;
+	if (this != &other)
+	{
+		_poll_fds = other._poll_fds;
+	}
 	return (*this);
 }
 
@@ -122,10 +125,17 @@ void	PollManager::handleClientRead(int client_fd)
         const HttpRequest& req = conn.getParser().getRequest();
         
         // Check for parsing errors
-        if (req.error_code != 0) {
+        if (req.error_code != 0)
+		{
             // Send error response (or let Member 3 handle)
-            std::string error = "HTTP/1.1 " + std::to_string(req.error_code) + " Error\r\n\r\n";
-            write(client_fd, error.c_str(), error.size());
+			std::ostringstream error_stream;
+			error_stream << "HTTP/1.1 " << req.error_code << " Error\r\n"
+						<< "Content-Type: text/html\r\n"
+						<< "Connection: close\r\n"
+						<< "\r\n"
+						<< "<h1>Error " << req.error_code << "</h1>";
+			std::string error = error_stream.str();
+			write(client_fd, error.c_str(), error.size());
         } else {
             // ✅ Valid request - pass to Member 3
             std::cout << "✅ Received: " << req.method << " " << req.path << std::endl;
