@@ -14,12 +14,12 @@ void	validateLocation(LocationConfig local)
 		throw std::runtime_error("Both cgi path and extension must be provided together");
 	if (!local.cgi_path.empty() && !fileExitsCheck(local.cgi_path))
 		throw std::runtime_error("File does not exist: " + local.cgi_path);
-	// for (size_t i = 0; i < local.allowed_methods.size(); i++)
-	// {
-	// 	const std::string &m = local.allowed_methods[i];
-	// 	if (m != "GET" && m != "POST" && m != "DELETE")
-	// 		throw std::runtime_error("Invalid method: " + m); 
-	// }
+	for (size_t i = 0; i < local.allowed_methods.size(); i++)
+	{
+		const std::string &m = local.allowed_methods[i];
+		if (m != "GET" && m != "POST" && m != "DELETE")
+			throw std::runtime_error("Invalid method: " + m);
+	}
 }
 
 void	validateError(const ServerConfig &config)
@@ -58,6 +58,12 @@ void	validateServer(ServerConfig config)
 		throw std::runtime_error("No index files specified");
 	else if (config.client_max_body_size == 0)
 		throw std::runtime_error("Max body size cannot be 0");
+	if (config.return_code != 0 && (config.return_code < 300 || config.return_code > 399))
+	{
+		std::ostringstream oss;
+		oss << config.return_code;
+		throw std::runtime_error("Invalid return code: " + oss.str());
+	}
 	validateError(config);
 	for (size_t i = 0; i < config.locations.size(); i++)
 		validateLocation(config.locations[i]);
