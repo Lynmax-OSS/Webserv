@@ -14,7 +14,7 @@ void	validateLocation(LocationConfig local)
 		throw std::runtime_error("Both cgi path and extenstion must be config");
 	if (!fileExitsCheck(local.cgi_path))
 		throw std::runtime_error("File does not exist: " + local.cgi_path);
-	for (int i = 0; i < local.allowed_methods.size(); i++)
+	for (size_t i = 0; i < local.allowed_methods.size(); i++)
 	{
 		const std::string &m = local.allowed_methods[i];
 		if (m != "GET" && m != "POST" && m != "DELETE")
@@ -58,7 +58,7 @@ void	validateServer(ServerConfig config)
 	else if (config.client_max_body_size == 0)
 		throw std::runtime_error("Max body size cannot be 0");
 	validateError(config);
-	for (int i = 0; i < config.locations.size(); i++)
+	for (size_t i = 0; i < config.locations.size(); i++)
 		validateLocation(config.locations[i]);
 	
 }
@@ -80,7 +80,7 @@ void	ConfigValidator(std::vector<ServerConfig> &configs)
 {
 	if (configs.empty())
 		throw	std::runtime_error("Server configs are empty");
-	for (size_t i; i < configs.size() ; i++)
+	for (size_t i = 0; i < configs.size() ; i++)
 		validateServer(configs[i]);
 	checkDupPort(configs);
 }
