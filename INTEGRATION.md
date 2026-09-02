@@ -299,4 +299,5 @@ ________________________________________________________________________________
 
 # Final Note
 
-![alt text](image.png)
+<img width="480" height="270" alt="image" src="https://github.com/user-attachments/assets/f5917bc3-383c-46c6-9a6b-22e3cde9b2a8" />
+
