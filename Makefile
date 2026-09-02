@@ -6,16 +6,13 @@ NAME = webserv
 
 SRCS = src/main.cpp \
        src/ParserSrc/HttpParser.cpp \
-	   src/ParserSrc/ClientConnection.cpp
-
-# SRCS = src/main.cpp \
-#        src/ParserSrc/HttpParser.cpp \
-#        src/ConfigSrc/ConfigParser.cpp \
-#        src/ConfigSrc/ConfigValidator.cpp \
-#        src/ConfigSrc/Tokenizer.cpp \
-#        src/NetworkSrc/PollManager.cpp \
-#        src/NetworkSrc/ServerSocket.cpp \
-#        src/NetworkSrc/SocketManager.cpp
+       src/ParserSrc/ClientConnection.cpp \
+       src/ConfigSrc/ConfigParser.cpp \
+       src/ConfigSrc/ConfigValidator.cpp \
+       src/ConfigSrc/Tokenizer.cpp \
+       src/NetworkSrc/PollManager.cpp \
+       src/NetworkSrc/ServerSocket.cpp \
+       src/NetworkSrc/SocketManager.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 
