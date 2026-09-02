@@ -36,6 +36,14 @@ LocationConfig	parseLocationBlock(std::vector<std::string> tokens, size_t &i)
 			local.cgi_extension = tokens[++i];
 		else if (tokens[i] == "cgi_path")
 			local.cgi_path = tokens[++i];
+		else if (tokens[i] == "return")
+		{
+			local.return_code = std::atoi(tokens[++i].c_str());
+			if (i + 1 < tokens.size() && tokens[i + 1] != "}" && tokens[i + 1] != "autoindex"
+				&& tokens[i + 1] != "root" && tokens[i + 1] != "cgi_extension"
+				&& tokens[i + 1] != "cgi_path" && tokens[i + 1] != "allowed_methods")
+				local.return_url = tokens[++i];
+		}
 		i++;
 	}
 	i++;
@@ -107,6 +115,12 @@ ServerConfig parseServerBlock(const std::vector<std::string> &tokens, size_t &i)
 		}
 		else if (tokens[i] == "client_max_body_size")
 			config.client_max_body_size = parseSize(tokens[++i]);
+		else if (tokens[i] == "return")
+		{
+			config.return_code = std::atoi(tokens[++i].c_str());
+			if (i + 1 < tokens.size() && tokens[i + 1] != "}" && tokens[i + 1] != "location")
+				config.return_url = tokens[++i];
+		}
 		i++;
 	}
 	i++;
