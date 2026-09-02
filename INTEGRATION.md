@@ -299,5 +299,5 @@ ________________________________________________________________________________
 
 # Final Note
 
-<iframe src="https://giphy.com/embed/op4n9nZWhQiZ2" width="480" height="271" style="" frameBorder="0" class="giphy-embed" allowFullScreen></iframe><p><a href="https://giphy.com/gifs/shirokuma-cafe-op4n9nZWhQiZ2">via GIPHY</a></p>
+<img width="2380" height="2380" alt="webserv" src="https://github.com/user-attachments/assets/3ed1beb9-13d0-4491-973f-acb48f054eb2" />
 
