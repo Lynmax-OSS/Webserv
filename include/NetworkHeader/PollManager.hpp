@@ -2,9 +2,10 @@
 # define POLLMANAGER_HPP
 # include "../NetworkHeader/ServerSocket.hpp"
 # include "../NetworkHeader/SocketManager.hpp"
-#include "../ParserHeader/ClientConnection.hpp"
+# include "../ParserHeader/ClientConnection.hpp"
 # include <poll.h>
-#include <map>  
+# include <map>
+# include <sstream>
 
 class PollManager
 {
