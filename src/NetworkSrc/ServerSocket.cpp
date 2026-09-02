@@ -10,7 +10,8 @@ ServerSocket::ServerSocket(const ServerConfig &config): fd(-1)
 	int opt = 1;
 	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1)
 		throw (std::runtime_error("setsockopt failed"));
-	sockaddr_in addr{};
+	sockaddr_in addr;
+	// {};
 
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(config.port);
