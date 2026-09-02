@@ -1,63 +1,34 @@
-// #include "../include/Webserv.hpp"
-// #include "../include/NetworkHeader/PollManager.hpp"
-// #include "../include/NetworkHeader/SocketManager.hpp"
+// ============================================================
+// WEBSERV SERVER - MAIN ENTRY POINT
+// ============================================================
+// Compile: make re
+// Run: ./webserv configs/default.conf
+// ============================================================
 
-// int main(int argc, char **argv)
-// {
-// 	try
-// 	{
-// 		std::string path = argc > 1 ? argv[1] : "configs/default.conf";
+#include "../include/Webserv.hpp"
+#include "../include/NetworkHeader/PollManager.hpp"
+#include "../include/NetworkHeader/SocketManager.hpp"
+
+int main(int argc, char **argv)
+{
+	try
+	{
+		std::string path = argc > 1 ? argv[1] : "configs/default.conf";
 		
-// 		std::vector<ServerConfig> configs = ConfigParser(path);
-// 		SocketManager manager(configs);
-// 		PollManager poll(manager);
-// 		poll.run();
-// 	}
-// 	catch(const ConfigException& e)
-// 		{ std::cerr << "Config error: " << e.what() << std::endl; }
-// 	catch(const std::exception& e)
-// 		{ std::cerr << "Unknown error: " << e.what() << std::endl; }
-// 	return (0);
-// }
-
-// ============================================================
-// ACTIVE TEST: Integration Test (for Member 1's PollManager)
-// ============================================================
-// shows how ClientConnection works with a real socket flow.
-// ============================================================
-
-#include "../include/ParserHeader/ClientConnection.hpp"
-#include <iostream>
-#include <map>
-
-int main() {
-    std::map<int, ClientConnection> clients;
-    
-    // Simulate a client connection
-    int fake_fd = 42;
-    ClientConnection& conn = clients[fake_fd];
-    
-    // Simulate receiving data
-    std::string raw_request = 
-        "GET /index.html HTTP/1.1\r\n"
-        "Host: localhost\r\n"
-        "Connection: keep-alive\r\n"
-        "\r\n";
-    
-    conn.getParser().feed(raw_request);
-    
-    if (conn.getParser().isComplete()) {
-        const HttpRequest& req = conn.getParser().getRequest();
-        std::cout << "✅ Received request: " << req.method << " " << req.path << std::endl;
-        std::cout << "Keep-Alive: " << (req.keep_alive ? "yes" : "no") << std::endl;
-        
-        // This is where Member 3 would handle the request
-        // handleRequest(req, conn.getWriteBuffer());
-        
-        conn.getParser().reset();
-    }
-    
-    return 0;
+		std::vector<ServerConfig> configs = ConfigParser(path);
+		SocketManager manager(configs);
+		PollManager poll(manager);
+		poll.run();  // ← This runs FOREVER!
+	}
+	catch(const ConfigException& e)
+	{
+		std::cerr << "Config error: " << e.what() << std::endl;
+	}
+	catch(const std::exception& e)
+	{
+		std::cerr << "Unknown error: " << e.what() << std::endl;
+	}
+	return (0);
 }
 
 //-----------------------------------------------------
