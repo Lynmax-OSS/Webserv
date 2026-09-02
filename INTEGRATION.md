@@ -1,384 +1,282 @@
-# Integration Guide - Member 2's HTTP Parser
+# Integration Guide for Member 3 – Request Handling & HTTP Response
 
-## 📋 Overview
+## Your Task
 
-I've built a **complete HTTP/1.1 request parser** that converts raw HTTP requests into structured C++ objects. This document explains how Member 1 (Network/Sockets) and Member 3 (Response/Handling) should integrate with it.
+You are responsible for implementing the actual request handling – taking a parsed `HttpRequest` and producing a valid HTTP response. This includes:
 
----
+- Routing requests to the correct `ServerConfig` and `LocationConfig`.
+- Serving static files (GET), handling uploads (POST), DELETE, and directory listing (autoindex).
+- Executing CGI scripts.
+- Implementing custom error pages, redirects, and proper HTTP status codes.
+- Building the complete HTTP response (status line, headers, body).
 
-## 📁 File Structure
-
-webserv/
-├── include/
-│ └── ParserHeader/
-│ ├── HttpRequest.hpp # Request data structure
-│ ├── HttpParser.hpp # Parser class
-│ └── ClientConnection.hpp # Per-client connection state
-├── src/
-│ └── ParserSrc/
-│ ├── HttpParser.cpp # Parser implementation
-│ └── ClientConnection.cpp # Connection management
-└── Makefile # Must include parser files
-
+The server infrastructure (config parsing, socket handling, poll loop, HTTP request parser, and connection management) is already done. Your main entry point is the `PollManager::handleRequest` function.
 
 ---
 
-## 🔧 What the Parser Does
+## What’s Already Done (Members 1 & 2)
 
-| Feature   								 Status |
-|---------------------------------------------------|
-| Parses request line (GET, POST, DELETE) 	 	 ✅ |
-| Parses HTTP headers | 						 ✅ |
-| Handles body with Content-Length  			 ✅ |
-| Handles chunked transfer encoding  			 ✅ |
-| URI decoding (%20 → space, etc.)  			 ✅ |
-| Keep-Alive detection | 						 ✅ |
-| Host header validation (HTTP/1.1)  			 ✅ |
-| Multiple requests on same connection  		 ✅ |
-| Body size limits (413) | 						 ✅ |
-| HTTP version validation (505)  				 ✅ |
-| Pipelining (multiple requests in one buffer)	 ✅ |
-| Timeout tracking  							 ✅ |
+- **Config parsing** – `ServerConfig` and `LocationConfig` structs with all necessary fields (root, index, locations, allowed_methods, autoindex, CGI, return, error pages, etc.).
+- **Socket & event loop** – Non-blocking sockets, `poll()`-based loop, connection handling, keep-alive, timeout management.
+- **HTTP request parser** – `HttpParser` produces a complete `HttpRequest` (method, path, headers, body, query string, keep-alive flag, error code).
+
+The server already calls your handler with a fully parsed request and the full config list. **You do not need to worry about sockets, parsing, or non-blocking writes** – only produce the response string.
 
 ---
 
-## 📊 The HttpRequest Struct
+## Your Main Function: `PollManager::handleRequest`
+
+Location: `src/NetworkSrc/PollManager.cpp`
 
 ```cpp
-struct HttpRequest {
-    std::string method;          // "GET", "POST", "DELETE"
-    std::string uri;             // Original URI "/index.html?name=john"
-    std::string path;            // Decoded path "/index.html"
-    std::string query_string;    // "name=john"
-    std::string http_version;    // "HTTP/1.1"
-    
-    std::map<std::string, std::string> headers;  // All headers
-    std::string body;            // Request body (decoded)
-    
-    bool keep_alive;             // true if Connection: keep-alive
-    int content_length;          // -1 if not specified
-    int error_code;              // 0 = OK, 400+ = error
-};
+void PollManager::handleRequest(const HttpRequest& req,
+                                const std::vector<ServerConfig>& configs,
+                                std::string& response)
+```
+______________________________________________________________________________________
 
-## Error Codes
+# Inputs:
+> req – the parsed HttpRequest (see struct below).
+> configs – all server configurations parsed from the config file.
+> response – a string you must fill with the complete HTTP response.
 
-Code	Meaning
-0		No error (request is valid)
-400		Bad Request
-413		Payload Too Large
-414		URI Too Long
-431		Request Header Fields Too Large
-505		HTTP Version Not Supported
+# Output:
+Fill response with the full HTTP response, e.g.:
 
-🔌 Member 1: Integration with PollManager
+    HTTP/1.1 200 OK\r\n
+    Content-Type: text/html\r\n
+    Content-Length: 1234\r\n
+    Connection: keep-alive\r\n
+    \r\n
+    <html>...</html>
+______________________________________________________________________________________
 
-//-----------------------
-Step 1: Add Includes
-//-----------------------
-PollManager.hpp:
+# Structures You Need:
 
-#ifndef POLLMANAGER_HPP
-#define POLLMANAGER_HPP
+```cpp
+>> HttpRequest (from include/ParserHeader/HttpRequest.hpp)
 
-#include "../NetworkHeader/ServerSocket.hpp"
-#include "../NetworkHeader/SocketManager.hpp"
-#include "../ParserHeader/ClientConnection.hpp"  // ← ADD THIS
-#include <poll.h>
-#include <map>                                    // ← ADD THIS
+    struct HttpRequest {
+        std::string method;         // "GET", "POST", "DELETE"
+        std::string uri;            // Original URI, e.g., "/index.html?name=john"
+        std::string path;           // Decoded path, e.g., "/index.html"
+        std::string query_string;   // "name=john"
+        std::string http_version;   // "HTTP/1.1"
+        std::map<std::string, std::string> headers; // All request headers
+        std::string body;           // Request body (already decoded)
+        bool keep_alive;            // true if Connection: keep-alive
+        int content_length;         // -1 if not specified
+        int error_code;             // 0 = OK (parsing errors are handled before this)
+    };
 
-class PollManager {
-    // ...
-};
+>> ServerConfig and LocationConfig (from include/ConfigHeader/)
 
-//-----------------------
-Step 2: Add Client Storage
-//-----------------------
-PollManager.hpp - Add member variable:
+    struct ServerConfig {
+        int port;
+        std::string host;
+        std::string server_name;
+        std::string root;
+        std::vector<std::string> index;
+        std::vector<LocationConfig> locations;
+        std::map<int, std::string> errors;   // error code -> file path
+        size_t client_max_body_size;
+        std::string return_url;
+        int return_code;
+    };
 
-class PollManager {
-    // ...
-private:
-    SocketManager &_manager;
-    std::vector<pollfd> _poll_fds;
-    std::map<int, ClientConnection> _clients;  // ← ADD THIS
-    // ...
-};
+    struct LocationConfig {
+        std::string path;                     // location prefix
+        std::string root;
+        std::vector<std::string> allowed_methods;
+        bool autoindex;
+        std::string cgi_extension;
+        std::string cgi_path;
+        int return_code;
+        std::string return_url;
+    };
+```
+______________________________________________________________________________________
 
-//-----------------------
-Step 3: Create ClientConnection on New Connection
-//-----------------------
+## Step-by-Step Implementation Guidance
 
-PollManager.cpp - handleNewConnections():
+1. Find_the_Correct_ServerConfig
 
-void PollManager::handleNewConnections(int server_fd) {
-    sockaddr_in client_addr;
-    socklen_t client_len = sizeof(client_addr);
-    
-    int client_fd = accept(server_fd, (sockaddr*)&client_addr, &client_len);
-    if (client_fd == -1) {
-        std::cerr << "accept() failed: " << strerror(errno) << "\n";
-        return;
+> If there is only one server (common in tests), use configs[0].
+
+> For multiple servers, match by the Host header (includes port) or by the port the request came in on (you can get the port from the server socket, but simpler to use Host). Example:
+
+```cpp
+    const ServerConfig* server = NULL;
+    std::string host = req.headers["Host"];   // "localhost:8080"
+    // parse port from host (if present)
+    int port = 8080; // default
+    size_t colon = host.find(':');
+    if (colon != std::string::npos)
+        port = atoi(host.substr(colon + 1).c_str());
+
+    for (size_t i = 0; i < configs.size(); ++i) {
+        if (configs[i].port == port) {
+            server = &configs[i];
+            break;
+        }
     }
-    
-    std::cout << "Client connected on fd " << client_fd << "\n";
-    
-    // ✅ CREATE ClientConnection
-    _clients[client_fd] = ClientConnection(client_fd);
-	//
-    addFd(client_fd, POLLIN | POLLOUT);
-}
+    if (server == NULL)
+        server = &configs[0]; // fallback
+```
 
-//-----------------------
-Step 4: Parse Requests in handleClientRead()
-//-----------------------
-PollManager.cpp - handleClientRead():
+2. Find_the_Matching_LocationConfig
 
-void PollManager::handleClientRead(int client_fd) {
-    char buf[4096];
-    ssize_t bytes = read(client_fd, buf, sizeof(buf) - 1);
-    
-    if (bytes <= 0) {
-        std::cout << "Client fd " << client_fd << " disconnected\n";
-        _clients.erase(client_fd);
-        close(client_fd);
-        removeFd(client_fd);
-        return;
-    }
-    
-    // ✅ Feed data to parser
-    ClientConnection& conn = _clients[client_fd];
-    conn.getParser().feed(std::string(buf, bytes));
-    conn.updateActivity();  // Reset timeout timer
-    
-    // ✅ Check if request is complete
-    if (conn.getParser().isComplete()) {
-        const HttpRequest& req = conn.getParser().getRequest();
-        
-        // Check for parsing errors
-        if (req.error_code != 0) {
-            // Send error response (or let Member 3 handle)
-            std::string error = "HTTP/1.1 " + std::to_string(req.error_code) + " Error\r\n\r\n";
-            write(client_fd, error.c_str(), error.size());
-        } else {
-            // ✅ Valid request - pass to Member 3
-            std::cout << "✅ Received: " << req.method << " " << req.path << std::endl;
-            
-            // Member 3 will handle the request and fill conn.getWriteBuffer()
-            // handleRequest(req, conn.getWriteBuffer());
-            
-            // Send response from write buffer
-            if (!conn.getWriteBuffer().empty()) {
-                write(client_fd, conn.getWriteBuffer().c_str(), conn.getWriteBuffer().size());
-                conn.getWriteBuffer().clear();
+> Iterate through server->locations and find the longest matching prefix with req.path.
+
+> If a LocationConfig has an empty root, inherit from server->root.
+
+```cpp
+    const LocationConfig* best = NULL;
+    size_t best_len = 0;
+    for (size_t i = 0; i < server->locations.size(); ++i) {
+        const LocationConfig& loc = server->locations[i];
+        if (req.path.compare(0, loc.path.size(), loc.path) == 0) {
+            if (loc.path.size() > best_len) {
+                best = &loc;
+                best_len = loc.path.size();
             }
         }
-        
-        // ✅ Handle keep-alive
-        if (req.keep_alive) {
-            conn.setKeepAlive(true);
-            conn.getParser().reset();  // Ready for next request
-            // Keep socket open!
-        } else {
-            conn.setKeepAlive(false);
-			//--------------------------------------
-			//✅so when the poll() is still watching that file descriptor until you call removeFd()
-			// you close() it, so the FD becomes invalid
-			//then removeFd() tries to remove it, which might;
-			//  access invalid memory, 
-			// remove the wrong FD if the number was reused and 
-			// cause undefined behaviour
-			// so I swapped the removeFd() ad close() positions
-			removeFd(client_fd);
-            close(client_fd);
-            _clients.erase(client_fd);
-        }
     }
-}
+```
 
-//-----------------------
-Step 5: Add Timeout Checks
-//-----------------------
-PollManager.cpp - run():
+3. Check_allowed_methods
 
-void PollManager::run() {
-    std::cout << "Server running...\n";
-    
-    while (true) {
-        // ✅ Use timeout for timeout checks (1000ms = 1 second)
-        int ready = poll(_poll_fds.data(), _poll_fds.size(), 1000);
-        
-        // ✅ Check for timeouts on clients
-        time_t now = time(NULL);
-        for (std::map<int, ClientConnection>::iterator it = _clients.begin();
-             it != _clients.end();) {
-            if (it->second.isTimeout(now, 60)) {  // 60 second timeout
-                std::cout << "Timeout on fd " << it->first << std::endl;
-                close(it->first);
-                removeFd(it->first);
-                _clients.erase(it++);
-            } else {
-                ++it;
+> If the LocationConfig has a list of allowed_methods, verify req.method is in that list.
+
+> If not, return 405 Method Not Allowed.
+
+```cpp
+    bool method_allowed = true;
+    if (best && !best->allowed_methods.empty()) {
+        method_allowed = false;
+        for (size_t i = 0; i < best->allowed_methods.size(); ++i)
+            if (req.method == best->allowed_methods[i]) {
+                method_allowed = true;
+                break;
             }
-        }
-        
-        if (ready == -1)
-            throw std::runtime_error("poll() failed");
-        
-        // ... rest of poll loop ...
     }
-}
-
-//-----------------------
-Step 6: Update Makefile
-//-----------------------
-Add parser source files:
-
-makefile
-SRCS = src/main.cpp \
-       src/ParserSrc/HttpParser.cpp \
-       src/ParserSrc/ClientConnection.cpp \
-       src/ConfigSrc/ConfigParser.cpp \
-       src/ConfigSrc/ConfigValidator.cpp \
-       src/ConfigSrc/Tokenizer.cpp \
-       src/NetworkSrc/PollManager.cpp \
-       src/NetworkSrc/ServerSocket.cpp \
-       src/NetworkSrc/SocketManager.cpp
-
-
-📤 Member 3: Request Handling
-Member 3 receives the HttpRequest object and produces a response.
-
-//-----------------------
-How to Access the Request
-//-----------------------
-
-void handleRequest(const HttpRequest& req, std::string& response_buffer) {
-    // 1. Check the method
-    if (req.method == "GET") {
-        // Serve static file: req.path
-        // Example: req.path == "/index.html"
-    } else if (req.method == "POST") {
-        // Handle upload: req.body contains the data
-        // req.headers["Content-Type"] tells you the format
-    } else if (req.method == "DELETE") {
-        // Delete file: req.path
-    }
-    
-    // 2. Check for errors
-    if (req.error_code != 0) {
-        // Send error page
-        response_buffer = buildErrorResponse(req.error_code);
+    if (!method_allowed) {
+        response = buildErrorResponse(server, 405, req.keep_alive);
         return;
     }
-    
-    // 3. Build response
-    response_buffer = buildHttpResponse(status, headers, body);
-}
+```
 
-//-----------------------
-What You Get
-//-----------------------
+4. Handle_Redirects_(return directive)
 
-// Access request parts
-req.method        // "GET", "POST", "DELETE"
-req.path          // "/index.html" (decoded)
-req.query_string  // "name=john"
-req.headers       // map of all headers
-req.body          // Request body (decoded)
-req.keep_alive    // true/false
-req.error_code    // 0 = OK
+>If best has a return_code (e.g., 301) and return_url, send a response with that status and a Location header.
 
-// Example: Check Content-Type
-if (req.headers.find("Content-Type") != req.headers.end()) {
-    std::string content_type = req.headers["Content-Type"];
-}
+```cpp
+    if (best && best->return_code != 0) {
+        std::ostringstream oss;
+        oss << "HTTP/1.1 " << best->return_code << " Redirect\r\n"
+            << "Location: " << best->return_url << "\r\n"
+            << "Content-Length: 0\r\n"
+            << "Connection: " << (req.keep_alive ? "keep-alive" : "close") << "\r\n"
+            << "\r\n";
+        response = oss.str();
+        return;
+    }
+```
 
-//-----------------------//
-//-----------------------//
-🧪 Testing Your Integration
-//-----------------------//
+5. Route_Based_on_Method
 
-Simple Test
-After integration, you should be able to:
+## GET (static file / directory listing)
 
-bash
-# Compile
-make re
+> Build the file path: root + req.path. If req.path ends with /, append the first index file (e.g., server->index[0]).
+> If the target is a directory and autoindex is on, generate an HTML listing.
+> If the file exists, read it, determine Content-Type from extension, and send 200 OK.
+> If not found, send 404 Not Found using a custom error page if available.
 
-# Run server
-./webserv configs/default.conf
+## POST (upload)
+> Save the request body to a file inside the appropriate root (e.g., ./uploads).
+> Use the filename from Content-Disposition header if present, or generate a name.
+> Return 201 Created or 200 OK.
 
-# In another terminal:
-curl -v http://localhost:8080/index.html
-Expected Output
-Server:
+## DELETE
+> Remove the file specified by req.path (relative to the root).
+> Return 204 No Content or 200 OK.
 
-text
-Server running...
-Client connected on fd 4
-✅ Received: GET /index.html
-curl:
+## CGI (e.g., /cgi-bin/script.py)
+> If the location has cgi_extension and req.path ends with that extension:
+    ~ Use pipe(), fork(), execve() to run cgi_path (e.g., /usr/bin/python3).
+    ~ Pass environment: QUERY_STRING, REQUEST_METHOD, CONTENT_LENGTH, CONTENT_TYPE, etc.
+    ~ Read the script’s stdout; this is the response body (may include headers – you may need to parse them).
+    ~ Return the output as the response.
 
-text
-HTTP/1.1 200 OK
-Content-Type: text/html
+```cpp
+6.Error_Pages
 
-//-----------------------
-📋 Integration Checklist
-//-----------------------
-Member 1 (Network/Sockets)
+> For errors like 404, 403, 500, check server->errors for a custom page:
 
-□ Add #include "ParserHeader/ClientConnection.hpp" to PollManager.hpp
-□ Add #include <map> to PollManager.hpp
-□ Add std::map<int, ClientConnection> _clients; to PollManager class
-□ Add #include "ParserHeader/ClientConnection.hpp" to PollManager.cpp
-□ Create ClientConnection in handleNewConnections()
-□ Call conn.getParser().feed() in handleClientRead()
-□ Call conn.updateActivity() in handleClientRead()
-□ Check req.error_code for errors
-□ Handle keep-alive properly
-□ Add timeout checks in run()
-□ Update Makefile to compile parser files
+    std::map<int, std::string>::const_iterator it = server->errors.find(status);
+    if (it != server->errors.end()) {
+        // read file it->second and use as body
+    } else {
+        // use simple default message
+    }
+```
+7.Build_the_Response
 
-Member 3 (Request/Response)
+>Always set:
+    ~ Content-Type (if body is present)
+    ~ Content-Length
+    ~ Connection (based on req.keep_alive – but if you decide to close, set "close")
+    ~ Status line with reason phrase (200 OK, 404 Not Found, etc.)
 
-□ Implement handleRequest() function
-□ Use req.method to route requests
-□ Use req.path to find files
-□ Use req.body for POST data
-□ Use req.headers for content type
-□ Build proper HTTP responses
-□ Set Connection: close or keep-alive
-□ Handle error codes (400, 404, 413, 500, etc.)
+```cpp
+    std::ostringstream oss;
+    oss << "HTTP/1.1 " << status << " " << reason << "\r\n"
+        << "Content-Type: " << content_type << "\r\n"
+        << "Content-Length: " << body.size() << "\r\n"
+        << "Connection: " << (req.keep_alive ? "keep-alive" : "close") << "\r\n"
+        << "\r\n"
+        << body;
+    response = oss.str();
+```
+______________________________________________________________________________________
 
-✅ Status
-Component			Status
-Parser (Member 2)	✅ Complete
-Config (Member 1)	✅ Complete
-Network (Member 1)	⬜ Needs integration
-Response (Member 3)	⬜ In progress
-CGI (Member 3)		⬜ In progress
+## Important_Notes
 
-## ⚠️ Current Status
+Non-blocking sockets: The server manages writes. You only fill response; the event loop sends it.
 
-**Member 2's parser is 100% complete and tested.** 
-**Member 1 needs to integrate the parser into PollManager.** 
-**Member 3 needs to implement request handling.**
+Keep-alive: If you set Connection: keep-alive, the parser will be reset and the connection stays open. If you want to close, set "close".
 
-//The "Common Issues" section below is for reference during integration.//
+Pipelining: Multiple requests may be processed in one read; you just handle each sequentially.
 
-🆘 Common Issues
-Issue: "No matching constructor" error
-Fix: Make sure ClientConnection has a default constructor:
+Do not touch the event loop, parser, or socket code.
+______________________________________________________________________________________
 
-ClientConnection();  // ✅ Required for map[]
-Issue: Parser not detecting complete request
-Fix: Make sure you're calling conn.getParser().reset() after processing each request.
+# Testing Your Implementation
+>> Compile: make re
 
-Issue: Keep-alive not working
-Fix: Don't close the socket if req.keep_alive is true.
+>> Run: ./webserv configs/default.conf
 
-Issue: Timeout not working
-Fix: Call conn.updateActivity() every time you receive data.
+>> Test endpoints:
+    ~ curl -v http://localhost:8080/ → serves index.html
+    ~ curl -v http://localhost:8080/images/logo.png → serves from /images root
+    ~ curl -v -X POST -F "file=@test.txt" http://localhost:8080/upload → uploads file
+    ~ curl -v -X DELETE http://localhost:8080/uploads/test.txt → deletes file
+    ~ curl -v http://localhost:8080/cgi-bin/test.py → runs CGI script
+______________________________________________________________________________________
 
-Last updated: 		2026-08-04
+# Checklist Before Finishing
+□ Match requests to correct server/location.
+□ Serve static files (GET) with proper Content-Type.
+□ Handle directory listing (autoindex) when enabled.
+□ Implement file upload (POST).
+□ Implement DELETE.
+□ Implement CGI (at least basic Python).
+□ Return custom error pages (from config) for 404, 403, 500, etc.
+□ Implement redirects (return directive).
+□ Properly set Content-Length, Connection, and status codes.
+□ Ensure keep-alive works for multiple requests.
+______________________________________________________________________________________
+
+# Final Note
+
+# https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExdmt0aGx1N282N253aDRzd3VsZnlsY3h6Y2dwdm8zaXFrYTFha28xbSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/op4n9nZWhQiZ2/giphy.gif
