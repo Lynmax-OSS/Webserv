@@ -1,7 +1,7 @@
 #ifndef SERVERSOCKET_HPP
 # define SERVERSOCKET_HPP
 # include "../ConfigHeader/ConfigParser.hpp"
-
+# include <fcntl.h>
 
 class ServerSocket
 {
@@ -14,7 +14,6 @@ class ServerSocket
 		ServerSocket();
 		ServerSocket(const ServerSocket &other);
 		ServerSocket &operator=(const ServerSocket &other);
-
 };
 
 #endif
