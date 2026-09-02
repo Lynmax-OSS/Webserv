@@ -45,7 +45,7 @@ LocationConfig	parseLocationBlock(std::vector<std::string> tokens, size_t &i)
 size_t	parseSize(const std::string &val)
 {
 	char *end;
-	unsigned long	num = std::strtoul(val.c_str(), &end, 10);
+	unsigned long	num = std::strtol(val.c_str(), &end, 10);
 
 	if (end == val.c_str())
 		throw std::runtime_error("Invalid size value: " + val);
