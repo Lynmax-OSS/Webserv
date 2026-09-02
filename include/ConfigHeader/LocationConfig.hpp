@@ -11,9 +11,10 @@ struct LocationConfig
 	bool autoindex;
 	std::string cgi_extension;
 	std::string cgi_path;
+	int	return_code;
+	std::string return_url;
 
-	LocationConfig() : autoindex(false) {}
+	LocationConfig() : autoindex(false), return_code(0) {}
 };
-
 
 #endif
