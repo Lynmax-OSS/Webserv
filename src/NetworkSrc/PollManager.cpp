@@ -1,5 +1,6 @@
 #include "../../include/Webserv.hpp"
 #include "../../include/NetworkHeader/PollManager.hpp"
+#include "../../include/NetworkUtilsHeader/ResponseUtils.hpp"
 
 // ============================================================
 // Constructor / Destructor
@@ -223,50 +224,77 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
     // *************************************************************
     // For now, return 501 Not Implemented as a placeholder.
 	
-    (void)configs;  // not used yet
-
-    if (req.method == "GET") {
-        std::string base_path = "./www";  // temporary hardcode
-        std::string file_path = base_path + req.path;
-        if (!file_path.empty() && file_path[file_path.size() - 1] == '/')
-            file_path += "index.html";
-
-        std::ifstream file(file_path.c_str(), std::ios::binary);
-        if (file.is_open()) {
-            std::string body((std::istreambuf_iterator<char>(file)),
-                             std::istreambuf_iterator<char>());
-            file.close();
-
-            std::string content_type = "text/html";
-            if (file_path.find(".css") != std::string::npos)
-                content_type = "text/css";
-            else if (file_path.find(".js") != std::string::npos)
-                content_type = "application/javascript";
-            else if (file_path.find(".png") != std::string::npos)
-                content_type = "image/png";
-            // ... etc
-
-            std::ostringstream oss;
-            oss << "HTTP/1.1 200 OK\r\n"
-                << "Content-Type: " << content_type << "\r\n"
-                << "Content-Length: " << body.size() << "\r\n"
-                << "Connection: keep-alive\r\n"
-                << "\r\n"
-                << body;
-            response = oss.str();
-        } else {
-            response = "HTTP/1.1 404 Not Found\r\n"
-                       "Content-Type: text/html\r\n"
-                       "Content-Length: 0\r\n"
-                       "Connection: close\r\n"
-                       "\r\n";
+    const ServerConfig* server = NULL;
+    {
+        std::string host;
+        std::map<std::string, std::string>::const_iterator hostIt = req.headers.find("Host");
+        if (hostIt != req.headers.end())
+            host = hostIt->second;
+    
+        int port = 8080;
+        size_t colonPos = host.find(':');
+        if (colonPos != std::string::npos)
+            port = std::atoi(host.substr(colonPos + 1).c_str());
+        for (size_t i = 0; i < configs.size(); ++i)
+        {
+            if (configs[i].port == port)
+            {
+                server = &configs[i];
+                break;
+            }
         }
-    } else {
-        response = "HTTP/1.1 405 Method Not Allowed\r\n"
-                   "Content-Type: text/html\r\n"
-                   "Content-Length: 0\r\n"
-                   "Connection: close\r\n"
-                   "\r\n";
+        if (server == NULL && !configs.empty())
+            server = &configs[0]; // fallback to first server if no match
+    }
+    if (server == NULL)
+    {
+        response = buildErrorResponse(500, NULL, false);
+        return;
+    }
+
+    const LocationConfig* location = NULL;
+    {
+        size_t longestMatch = 0;
+        for (size_t i = 0; i < server->locations.size(); ++i)
+        {
+            const LocationConfig& loc = server->locations[i];
+            if (req.path.compare(0, loc.path.size(), loc.path) == 0
+                && loc.path.size() > longestMatch)
+            {
+                location = &loc;
+                longestMatch = loc.path.size();
+            }
+        }
+    }
+    if (location != NULL && !location->allowed_methods.empty())
+    {
+        bool allowed = false;
+        for (size_t i = 0; i < location->allowed_methods.size(); ++i)
+        {
+            if (req.method == location->allowed_methods[i])
+            {
+                allowed = true;
+                break;
+            }
+        }
+        if (!allowed)
+        {
+            response = buildErrorResponse(405, server, false);
+            return;
+        }
+    }
+    if (location != NULL && location->return_code != 0)
+    {
+        std::map<std::string, std::string> headers;
+        headers["Location"] = location->return_url;
+        response = buildResponse(location->return_code, headers, "", req.keep_alive);
+        return;
+    }
+    if (req.method == "GET")
+    {
+        
+
+
     }
 }
 
