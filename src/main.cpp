@@ -17,7 +17,7 @@ int main(int argc, char **argv)
 		
 		std::vector<ServerConfig> configs = ConfigParser(path);
 		SocketManager manager(configs);
-		PollManager poll(manager);
+		PollManager poll(manager, configs);
 		poll.run();
 	}
 	catch(const ConfigException& e)
