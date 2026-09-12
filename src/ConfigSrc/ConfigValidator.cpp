@@ -10,15 +10,15 @@ void	validateLocation(LocationConfig local)
 {
 	if (local.path.empty() || local.path[0] != '/')
 		throw std::runtime_error("No path to directory");
-	if (local.cgi_extension.empty() || local.cgi_path.empty())
-		throw std::runtime_error("Both cgi path and extenstion must be config");
-	if (!fileExitsCheck(local.cgi_path))
+	if ((!local.cgi_extension.empty() && local.cgi_path.empty()) || (local.cgi_extension.empty() && !local.cgi_path.empty()))
+		throw std::runtime_error("Both cgi path and extension must be provided together");
+	if (!local.cgi_path.empty() && !fileExitsCheck(local.cgi_path))
 		throw std::runtime_error("File does not exist: " + local.cgi_path);
-	for (int i = 0; i < local.allowed_methods.size(); i++)
+	for (size_t i = 0; i < local.allowed_methods.size(); i++)
 	{
 		const std::string &m = local.allowed_methods[i];
 		if (m != "GET" && m != "POST" && m != "DELETE")
-			throw std::runtime_error("Invalid method: " + m); 
+			throw std::runtime_error("Invalid method: " + m);
 	}
 }
 
@@ -27,7 +27,8 @@ void	validateError(const ServerConfig &config)
 	std::map<int, std::string> pages = config.errors;
 
 	if (pages.empty())
-		throw std::runtime_error("No error page to be found");
+		// throw std::runtime_error("No error page to be found");
+		return ;
 	for (std::map<int, std::string>::const_iterator it = pages.begin(); it != pages.end(); it++)
 	{
 		if (it->first < 400 || it->first > 599)
@@ -37,7 +38,7 @@ void	validateError(const ServerConfig &config)
 			throw std::runtime_error(oss.str());
 		}
 		if (!fileExitsCheck(it->second))
-			throw std::runtime_error("No error page path");
+			throw std::runtime_error("No error page path: " + it->second);
 	}
 }
 
@@ -57,8 +58,14 @@ void	validateServer(ServerConfig config)
 		throw std::runtime_error("No index files specified");
 	else if (config.client_max_body_size == 0)
 		throw std::runtime_error("Max body size cannot be 0");
+	if (config.return_code != 0 && (config.return_code < 300 || config.return_code > 399))
+	{
+		std::ostringstream oss;
+		oss << config.return_code;
+		throw std::runtime_error("Invalid return code: " + oss.str());
+	}
 	validateError(config);
-	for (int i = 0; i < config.locations.size(); i++)
+	for (size_t i = 0; i < config.locations.size(); i++)
 		validateLocation(config.locations[i]);
 	
 }
@@ -80,7 +87,7 @@ void	ConfigValidator(std::vector<ServerConfig> &configs)
 {
 	if (configs.empty())
 		throw	std::runtime_error("Server configs are empty");
-	for (size_t i; i < configs.size() ; i++)
+	for (size_t i = 0; i < configs.size() ; i++)
 		validateServer(configs[i]);
 	checkDupPort(configs);
 }

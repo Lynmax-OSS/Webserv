@@ -1,3 +1,10 @@
+// ============================================================
+// WEBSERV SERVER - MAIN ENTRY POINT
+// ============================================================
+// Compile: make re
+// Run: ./webserv configs/default.conf
+// ============================================================
+
 #include "../include/Webserv.hpp"
 #include "../include/NetworkHeader/PollManager.hpp"
 #include "../include/NetworkHeader/SocketManager.hpp"

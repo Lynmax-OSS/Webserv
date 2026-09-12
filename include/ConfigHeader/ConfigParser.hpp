@@ -5,6 +5,7 @@
 # include <iostream>
 # include <fstream>
 # include <sstream>
+# include <cstdlib>
 # include <sys/stat.h>
 
 std::vector<ServerConfig>	ConfigParser(std::string configpath);
