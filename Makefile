@@ -12,7 +12,8 @@ SRCS = src/main.cpp \
        src/ConfigSrc/Tokenizer.cpp \
        src/NetworkSrc/PollManager.cpp \
        src/NetworkSrc/ServerSocket.cpp \
-       src/NetworkSrc/SocketManager.cpp
+       src/NetworkSrc/SocketManager.cpp \
+       src/NetworkUtilsSrc//ResponseUtils.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 
