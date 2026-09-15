@@ -292,9 +292,8 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
     }
     if (req.method == "GET")
     {
-        
-
-
+        buildErrorResponse(500, server, req.keep_alive);
+        return ;
     }
 }
 
@@ -340,7 +339,10 @@ void PollManager::run()
                 if (isServerFd(fd))
                     handleNewConnections(fd);
                 else
+                {
                     handleClientRead(fd);
+                    continue ;
+                }
             }
             if (_poll_fds[i].revents & POLLOUT)
             {
