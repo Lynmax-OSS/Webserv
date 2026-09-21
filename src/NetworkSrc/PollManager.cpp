@@ -40,9 +40,10 @@ PollManager &PollManager::operator=(const PollManager &other)
     return (*this);
 }
 
-<<<<<<< HEAD
-
+// ============================================================
 // Poll management
+// ============================================================
+
 void PollManager::addFd(int fd, short events)
 {
     pollfd pfd;
@@ -59,7 +60,7 @@ void PollManager::removeFd(int fd)
         if (_poll_fds[i].fd == fd)
         {
             _poll_fds.erase(_poll_fds.begin() + i);
-            return ;
+            return;
         }
     }
 }
@@ -85,7 +86,7 @@ void PollManager::handleNewConnections(int server_fd)
     if (client_fd == -1)
     {
         std::cerr << "accept() failed: " << strerror(errno) << "\n";
-        return ;
+        return;
     }
 
     // Set non-blocking
@@ -97,7 +98,9 @@ void PollManager::handleNewConnections(int server_fd)
     addFd(client_fd, POLLIN | POLLOUT);
 }
 
+// ============================================================
 // Client I/O
+// ============================================================
 
 ssize_t PollManager::readFromClient(int fd)
 {
@@ -124,7 +127,7 @@ void PollManager::handleClientRead(int fd)
         if (bytes < 0)            // actual read error
             std::cerr << "read error on fd " << fd << ": " << strerror(errno) << "\n";
         closeConnection(fd);
-        return ;
+        return;
     }
 
     ClientConnection& conn = _clients[fd];
@@ -143,7 +146,9 @@ void PollManager::handleClientWrite(int fd)
     sendResponse(fd);
 }
 
+// ============================================================
 // Request handling
+// ============================================================
 
 void PollManager::processRequest(int fd)
 {
@@ -188,7 +193,7 @@ void PollManager::sendResponse(int fd)
 {
     ClientConnection& conn = _clients[fd];
     if (conn.getWriteBuffer().empty())
-        return ;
+        return;
 
     ssize_t written = write(fd, conn.getWriteBuffer().c_str(),
                             conn.getWriteBuffer().size());
@@ -197,7 +202,10 @@ void PollManager::sendResponse(int fd)
     // If written == -1 && errno == EAGAIN, keep buffer for next POLLOUT
 }
 
+// ============================================================
 // Cleanup
+// ============================================================
+
 void PollManager::closeConnection(int fd)
 {
     std::cout << "Closing connection on fd " << fd << "\n";
@@ -206,7 +214,9 @@ void PollManager::closeConnection(int fd)
     _clients.erase(fd);
 }
 
+// ============================================================
 // Main handler (to be implemented by Member 3)
+// ============================================================
 
 void PollManager::handleRequest(const HttpRequest& req, const std::vector<ServerConfig>& configs, std::string& response)
 {
@@ -249,13 +259,9 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
     if (server == NULL)
     {
         response = buildErrorResponse(500, NULL, false);
-        return ;
+        return;
     }
-    if (hasParentTraversal(req.path))
-    {
-        response = buildErrorResponse(403, server, req.keep_alive);
-        return ;
-    }
+
     const LocationConfig* location = NULL;
     {
         size_t longestMatch = 0;
@@ -284,7 +290,7 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
         if (!allowed)
         {
             response = buildErrorResponse(405, server, false);
-            return ;
+            return;
         }
     }
     if (location != NULL && location->return_code != 0)
@@ -294,31 +300,12 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
         response = buildResponse(location->return_code, headers, "", req.keep_alive);
         return;
     }
-
-    if (!location->cgi_extension.empty() && location->cgi_extension == getExtension(req.uri))
-    {
-        response = handleCGI(req, server, location, resolvePath(server, location, req));
-        return ;
-    }
     if (req.method == "GET")
     {
-        std::string path = resolvePath(server, location, req);
-
-        // std::string locationPath = "";
-        // if (location)
-        // {
-        //     if (!location->root.empty())
-        //         path = location->root;
-        //     locationPath = location->path;
-        // }
-        // std::string remainder = req.path;
-        // if (!locationPath.empty() && req.path.compare(0, locationPath.size(), locationPath) == 0 && (req.path.size() == locationPath.size() || req.path[locationPath.size()] == '/'))
-        //     remainder = req.path.substr(locationPath.size());
-        // if (!path.empty() && path[path.size() - 1] == '/')
-        //     path.erase(path.size() - 1);
-        // if (!remainder.empty() && remainder[0] != '/')
-        //     remainder = "/" + remainder;
-        // path = path + remainder;
+        std::string path = server->root;
+        if (location && !location->root.empty())
+            path = location->root;
+        path = path + req.path;
         
         if (stat(path.c_str(), &path_stat) == -1)
         {
@@ -329,7 +316,6 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
             filePath = path;
         else if (S_ISDIR(path_stat.st_mode))
         {
-            std::string directory = path;
             if (path[path.length() - 1] == '/')
                 path = path + server->index[0];
             else
@@ -338,33 +324,8 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
                 filePath = path;
             else
             {
-                std::vector<std::string> autoIndexList;
-                if (!location || !location->autoindex)
-                {
-                    response = buildErrorResponse(404, server, req.keep_alive);
-                    return ;
-                }
-                DIR *dir = opendir(directory.c_str());
-                if (dir == NULL)
-                {
-                    response = buildErrorResponse(403, server, req.keep_alive);
-                    return ;
-                }
-                struct dirent *entry;
-
-                while ((entry = readdir(dir)) != NULL)
-                {
-                    if (std::string(entry->d_name) == ".")
-                        continue;
-                    autoIndexList.push_back(entry->d_name);
-                }
-                std::sort(autoIndexList.begin(), autoIndexList.end());
-                closedir(dir);
-                std::string body = buildAutoIndexPage(req.path, directory, autoIndexList);
-                std::map<std::string, std::string> headers;
-                headers["Content-Type"] = "text/html";
-                response = buildResponse(200, headers, body, req.keep_alive);
-                return;
+                response = buildErrorResponse(404, server, req.keep_alive);
+                return ;
             }
         }
         else
@@ -387,161 +348,11 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
         //     path = path + *it;
         //     std::cout << path << std::endl;
         // }
-    }
-    else if (req.method == "POST")
-    {
-        // std::string root = server->root;
-        // if (location && !location->root.empty())
-        //     root = location->root;
-        // std::string fullPath = root + req.path;
-
-        std::string fullPath = resolvePath(server, location, req);
-
-        // std::string root = server->root;
-        // std::string locationPath = "";
-        // if (location)
-        // {
-        //     if (!location->root.empty())
-        //         root = location->root;
-        //     locationPath = location->path;
-        // }
-        // std::string remainder = req.path;
-        // if (!locationPath.empty()
-        //     && req.path.compare(0, locationPath.size(), locationPath) == 0
-        //     && (req.path.size() == locationPath.size() || req.path[locationPath.size()] == '/'))
-        //     remainder = req.path.substr(locationPath.size());
-        // if (!root.empty() && root[root.size() - 1] == '/')
-        //     root.erase(root.size() - 1);
-        // if (!remainder.empty() && remainder[0] != '/')
-        //     remainder = "/" + remainder;
-        // std::string fullPath = root + remainder;
-        if (fullPath[fullPath.length() - 1] == '/')
-        {
-            response = buildErrorResponse(400, server, req.keep_alive);
-            return ;
-        }
-        if (hasParentTraversal(req.path))
-        {
-            response = buildErrorResponse(403, server, req.keep_alive);
-            return ;
-        }
-        if (req.content_length > server->client_max_body_size)
-        {
-            response = buildErrorResponse(413, server, req.keep_alive);
-            return ;
-        }
-        size_t  slash = fullPath.rfind('/');
-        std::string parentDir = fullPath.substr(0, slash);
-        struct stat dirStat;
-        if (stat(parentDir.c_str(), &dirStat) == -1)
-        {
-            response = buildErrorResponse(404, server, req.keep_alive);
-            return ;
-        }
-        if (!S_ISDIR(dirStat.st_mode))
-        {
-            response = buildErrorResponse(404, server, req.keep_alive);
-            return ;
-        }
-        if (access(parentDir.c_str(), W_OK) == -1)
-        {
-            response = buildErrorResponse(403, server, req.keep_alive);
-            return ;
-        }
-        struct stat fileStat;
-        if (stat(fullPath.c_str(), &fileStat) == 0 && S_ISDIR(fileStat.st_mode))
-        {
-            response = buildErrorResponse(400, server, req.keep_alive);
-            return ;
-        }
-        fullPath = getUniqueFileName(fullPath);
-        if (fullPath.empty())
-        {
-            response = buildErrorResponse(500, server, req.keep_alive);
-            return;
-        }
-        std::ofstream   outFile(fullPath.c_str(), std::ios::binary);
-        if (!outFile.is_open())
-        {
-            response = buildErrorResponse(500, server, req.keep_alive);
-            return;
-        }
-        outFile.write(req.body.c_str(), req.body.size());
-        outFile.close();
-        if (outFile.fail())
-        {
-            response = buildErrorResponse(500, server, req.keep_alive);
-            return ;
-        }
-        std::string savedName = fullPath.substr(fullPath.rfind('/') + 1);
-        std::map<std::string, std::string> headers;
-        headers["Location"] = req.path.substr(0, req.path.rfind('/') + 1) + savedName;
-        response = buildResponse(201, headers, "", req.keep_alive);
-        return;
-    }
-    else if (req.method == "DELETE")
-    {
-        // std::string path = server->root;
-        // if (location && !location->root.empty())
-        //     path = location->root;
-        // path = path + req.path;
-
-        // std::string root = server->root;
-        // std::string locationPath = "";
-        // if (location)
-        // {
-        //     if (!location->root.empty())
-        //         root = location->root;
-        //     locationPath = location->path;
-        // }
-        // std::string remainder = req.path;
-        // if (!locationPath.empty()
-        //     && req.path.compare(0, locationPath.size(), locationPath) == 0
-        //     && (req.path.size() == locationPath.size() || req.path[locationPath.size()] == '/'))
-        //     remainder = req.path.substr(locationPath.size());
-        // if (!root.empty() && root[root.size() - 1] == '/')
-        //     root.erase(root.size() - 1);
-        // if (!remainder.empty() && remainder[0] != '/')
-        //     remainder = "/" + remainder;
-        // std::string path = root + remainder;
-
-        std::string path = resolvePath(server, location, req);
-
-        if (hasParentTraversal(req.path))
-        {
-            response = buildErrorResponse(403, server, req.keep_alive);
-            return ;
-        }
-        if (stat(path.c_str(), &path_stat) == -1)
-        {
-            response = buildErrorResponse(404, server, req.keep_alive);
-            return ;
-        }
-        if (!S_ISREG(path_stat.st_mode))
-        {
-            response = buildErrorResponse(403, server, req.keep_alive);
-            return ;
-        }
-        size_t  slashIndex = path.find_last_of('/');
-        std::string dir = (slashIndex == std::string::npos) ? "." : path.substr(0, slashIndex);
-        if (access(dir.c_str(), W_OK) == -1)
-        {
-            response = buildErrorResponse(403, server, req.keep_alive);
-            return ;
-        }
-        if (std::remove(path.c_str()) != 0)
-        {
-            response = buildErrorResponse(500, server, req.keep_alive);
-            return ;
-        }
-        std::map<std::string, std::string> headers;
-        response = buildResponse(204, headers, "", req.keep_alive);
-        return;
+        
     }
 }
 
-=======
->>>>>>> 587633e (Refactor PollManager constructor & separated)
+// ============================================================
 // Main loop
 void PollManager::run()
 {
