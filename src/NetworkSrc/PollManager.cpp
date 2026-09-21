@@ -342,6 +342,38 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
         // }
         
     }
+    else if (req.method == "DELETE")
+    {
+        std::string path = server->root;
+        if (location && !location->root.empty())
+            path = location->root;
+        path = path + req.path;
+        if (stat(path.c_str(), &path_stat) == -1)
+        {
+            response = buildErrorResponse(404, server, req.keep_alive);
+            return ;
+        }
+        if (!S_ISREG(path_stat.st_mode))
+        {
+            response = buildErrorResponse(403, server, req.keep_alive);
+            return ;
+        }
+        size_t  slashIndex = path.find_last_of('/');
+        std::string dir = (slashIndex == std::string::npos) ? "." : path.substr(0, slashIndex);
+        if (access(dir.c_str(), W_OK) == -1)
+        {
+            response = buildErrorResponse(403, server, req.keep_alive);
+            return ;
+        }
+        if (std::remove(path.c_str()) != 0)
+        {
+            response = buildErrorResponse(500, server, req.keep_alive);
+            return ;
+        }
+        std::map<std::string, std::string> headers;
+        response = buildResponse(204, headers, "", req.keep_alive);
+        return;
+    }
 }
 
 // ============================================================
