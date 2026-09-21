@@ -10,6 +10,7 @@
 # include <fstream>
 # include <fcntl.h>
 # include <vector>
+# include <sys/stat.h>
 
 class PollManager
 {
