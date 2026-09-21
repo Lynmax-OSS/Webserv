@@ -285,16 +285,16 @@ ________________________________________________________________________________
 ______________________________________________________________________________________
 
 # Checklist Before Finishing
-□ Match requests to correct server/location.
-□ Serve static files (GET) with proper Content-Type.
-□ Handle directory listing (autoindex) when enabled.
-□ Implement file upload (POST).
-□ Implement DELETE.
-□ Implement CGI (at least basic Python).
-□ Return custom error pages (from config) for 404, 403, 500, etc.
-□ Implement redirects (return directive).
-□ Properly set Content-Length, Connection, and status codes.
-□ Ensure keep-alive works for multiple requests.
+[x] Match requests to correct server/location.
+[x] Serve static files (GET) with proper Content-Type.
+[ ] Handle directory listing (autoindex) when enabled.
+[ ] Implement file upload (POST).
+[~] Implement DELETE.
+[ ] Implement CGI (at least basic Python).
+[ ] Return custom error pages (from config) for 404, 403, 500, etc.
+[ ] Implement redirects (return directive).
+[ ] Properly set Content-Length, Connection, and status codes.
+[ ] Ensure keep-alive works for multiple requests.
 ______________________________________________________________________________________
 
 # Final Note
