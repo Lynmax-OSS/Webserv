@@ -223,6 +223,8 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
     //    - Fill `response` with the full HTTP response (including headers)
     // *************************************************************
     // For now, return 501 Not Implemented as a placeholder.
+    struct stat path_stat;
+    std::string filePath;
 	
     const ServerConfig* server = NULL;
     {
@@ -292,8 +294,53 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
     }
     if (req.method == "GET")
     {
-        buildErrorResponse(500, server, req.keep_alive);
-        return ;
+        std::string path = server->root;
+        if (location && !location->root.empty())
+            path = location->root;
+        path = path + req.path;
+        
+        if (stat(path.c_str(), &path_stat) == -1)
+        {
+            response = buildErrorResponse(404, server, req.keep_alive);
+            return ;
+        }
+        if (S_ISREG(path_stat.st_mode))
+            filePath = path;
+        else if (S_ISDIR(path_stat.st_mode))
+        {
+            if (path[path.length() - 1] == '/')
+                path = path + server->index[0];
+            else
+                path = path + "/" + server->index[0];
+            if (stat(path.c_str(), &path_stat) == 0 && S_ISREG(path_stat.st_mode))
+                filePath = path;
+            else
+            {
+                response = buildErrorResponse(404, server, req.keep_alive);
+                return ;
+            }
+        }
+        else
+        {
+            response = buildErrorResponse(403, server, req.keep_alive);
+            return ;
+        }
+        std::string body;
+        if (!readFileToString(path, body))
+        {
+            response = buildErrorResponse(500, server, req.keep_alive);
+            return ;
+        }
+        std::map<std::string, std::string> headers;
+        headers["Content-Type"] = getMimeType(filePath);
+        response = buildResponse(200, headers, body, req.keep_alive);
+        return;
+        // for (std::vector<std::string>::const_iterator it = server->index.begin() ; it != server->index.end() ; ++it)
+        // {
+        //     path = path + *it;
+        //     std::cout << path << std::endl;
+        // }
+        
     }
 }
 
