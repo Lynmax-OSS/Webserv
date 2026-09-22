@@ -13,6 +13,7 @@
 #include "../../include/NetworkUtilsHeader/ResponseUtils.hpp"
 #include <fstream>
 #include <sstream>
+#include <sys/stat.h>
 
 std::string getReasonPhrase(int status) {
     switch (status) {
@@ -110,4 +111,33 @@ std::string buildErrorResponse(int status, const ServerConfig *server, bool keep
     headers["Content-Type"] = "text/html";
     return buildResponse(status, headers, body, keepAlive);
 }
+
+std::string buildAutoIndexPage(const std::string &urlPath, const std::string &dirPath, const std::vector<std::string> &names)
+{
+    std::ostringstream  oss;
+    std::string         base = urlPath;
+
+    if (base[base.length() - 1] != '/')
+            base += "/";
+    oss << "<html><head><title>Index of " << urlPath << "</title></head>\n"
+        << "<body><h1>Index of " << urlPath << "</h1><hr><pre>\n";
+
+    for (size_t index = 0; index < names.size(); ++index)
+    {
+        std::string name = names[index];
+        std::string fullPath = dirPath;
+
+        if (fullPath[fullPath.length() - 1] != '/')
+            fullPath += "/";
+        fullPath += name;
+        struct stat st;
+        
+        if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
+            name += "/";
+        oss << "<a href=\"" << base << name << "\">" << name << "</a>\n";
+    }
+    oss << "</pre><hr></body></html>\n";
+    return (oss.str());
+}
+
 
