@@ -6,6 +6,9 @@
 // Constructor / Destructor
 // ============================================================
 
+# include <dirent.h>
+# include <algorithm>
+
 PollManager::PollManager(SocketManager &manager, const std::vector<ServerConfig> &configs)
     : _manager(manager), _configs(configs)
 {
@@ -298,7 +301,6 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
         if (location && !location->root.empty())
             path = location->root;
         path = path + req.path;
-        
         if (stat(path.c_str(), &path_stat) == -1)
         {
             response = buildErrorResponse(404, server, req.keep_alive);
@@ -308,6 +310,7 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
             filePath = path;
         else if (S_ISDIR(path_stat.st_mode))
         {
+            std::string directory = path;
             if (path[path.length() - 1] == '/')
                 path = path + server->index[0];
             else
@@ -316,8 +319,35 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
                 filePath = path;
             else
             {
-                response = buildErrorResponse(404, server, req.keep_alive);
-                return ;
+                std::vector<std::string> autoIndexList;
+                std::cout << "location: " << (location ? location->path : "NULL") << std::endl;
+                std::cout << "autoindex: " << location->autoindex << std::endl;
+                if (!location || !location->autoindex)
+                {
+                    response = buildErrorResponse(404, server, req.keep_alive);
+                    return ;
+                }
+                DIR *dir = opendir(directory.c_str());
+                if (dir == NULL)
+                {
+                    response = buildErrorResponse(403, server, req.keep_alive);
+                    return ;
+                }
+                struct dirent *entry;
+
+                while ((entry = readdir(dir)) != NULL)
+                {
+                    if (std::string(entry->d_name) == ".")
+                        continue;
+                    autoIndexList.push_back(entry->d_name);
+                }
+                std::sort(autoIndexList.begin(), autoIndexList.end());
+                closedir(dir);
+                std::string body = buildAutoIndexPage(req.path, directory, autoIndexList);
+                std::map<std::string, std::string> headers;
+                headers["Content-Type"] = "text/html";
+                response = buildResponse(200, headers, body, req.keep_alive);
+                return;
             }
         }
         else
@@ -331,6 +361,7 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
             response = buildErrorResponse(500, server, req.keep_alive);
             return ;
         }
+        std::cout << "location: " << (location ? location->path : "NULL") << std::endl;
         std::map<std::string, std::string> headers;
         headers["Content-Type"] = getMimeType(filePath);
         response = buildResponse(200, headers, body, req.keep_alive);
