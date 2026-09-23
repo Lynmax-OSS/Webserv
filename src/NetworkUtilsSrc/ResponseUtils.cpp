@@ -11,9 +11,9 @@
 /* ************************************************************************** */
 
 #include "../../include/NetworkUtilsHeader/ResponseUtils.hpp"
-#include <fstream>
-#include <sstream>
-#include <sys/stat.h>
+# include <fstream>
+# include <sstream>
+# include <sys/stat.h>
 
 std::string getReasonPhrase(int status) {
     switch (status) {
@@ -140,4 +140,16 @@ std::string buildAutoIndexPage(const std::string &urlPath, const std::string &di
     return (oss.str());
 }
 
-
+bool    hasParentTraversal(const std::string &path)
+{
+    size_t  pos = path.find("/");
+    while (pos != std::string::npos)
+    {
+        if (path.compare(pos + 1, 2, "..") == 0 && (path[pos + 1 + 2] == '/' || path[pos + 1 + 2] == '\0'))
+            return (true);
+        pos = path.find("/", pos + 1);
+    }
+	if (path.compare("..") == 0)
+		return (true);
+	return (false);
+}
