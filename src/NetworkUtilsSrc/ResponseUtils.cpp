@@ -10,7 +10,7 @@
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "../../include/NetworkUtilsHeader/ResponseUtils.hpp"
+# include "../../include/NetworkUtilsHeader/ResponseUtils.hpp"
 # include <fstream>
 # include <sstream>
 # include <sys/stat.h>
@@ -152,4 +152,26 @@ bool    hasParentTraversal(const std::string &path)
 	if (path.compare("..") == 0)
 		return (true);
 	return (false);
+}
+
+std::string resolvePath(const ServerConfig *server, const LocationConfig *location, const HttpRequest& req)
+{
+    std::string path = server->root;
+    std::string locationPath = "";
+    
+    if (location)
+    {
+        if (!location->root.empty())
+            path = location->root;
+        locationPath = location->path;
+    }
+    std::string remainder = req.path;
+    if (!locationPath.empty() && req.path.compare(0, locationPath.size(), locationPath) == 0 && (req.path.size() == locationPath.size() || req.path[locationPath.size()] == '/'))
+        remainder = req.path.substr(locationPath.size());
+    if (!path.empty() && path[path.size() - 1] == '/')
+        path.erase(path.size() - 1);
+    if (!remainder.empty() && remainder[0] != '/')
+        remainder = "/" + remainder;
+    path = path + remainder;
+    return (path);
 }
