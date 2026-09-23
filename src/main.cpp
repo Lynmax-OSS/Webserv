@@ -17,7 +17,7 @@ int main(int argc, char **argv)
 		{ std::cerr << "Config error: " << e.what() << std::endl; }
 	catch(const std::exception& e)
 		{ std::cerr << "Unknown error: " << e.what() << std::endl; }
-	return (0);
+	return (EXIT_SUCCESS);
 }
 
 // #include "../include/ParserHeader/HttpParser.hpp"
