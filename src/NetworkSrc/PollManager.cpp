@@ -301,22 +301,24 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
     }
     if (req.method == "GET")
     {
-        std::string path = server->root;
-        std::string locationPath = "";
-        if (location)
-        {
-            if (!location->root.empty())
-                path = location->root;
-            locationPath = location->path;
-        }
-        std::string remainder = req.path;
-        if (!locationPath.empty() && req.path.compare(0, locationPath.size(), locationPath) == 0 && (req.path.size() == locationPath.size() || req.path[locationPath.size()] == '/'))
-            remainder = req.path.substr(locationPath.size());
-        if (!path.empty() && path[path.size() - 1] == '/')
-            path.erase(path.size() - 1);
-        if (!remainder.empty() && remainder[0] != '/')
-            remainder = "/" + remainder;
-        path = path + remainder;
+        std::string path = resolvePath(server, location, req);
+
+        // std::string locationPath = "";
+        // if (location)
+        // {
+        //     if (!location->root.empty())
+        //         path = location->root;
+        //     locationPath = location->path;
+        // }
+        // std::string remainder = req.path;
+        // if (!locationPath.empty() && req.path.compare(0, locationPath.size(), locationPath) == 0 && (req.path.size() == locationPath.size() || req.path[locationPath.size()] == '/'))
+        //     remainder = req.path.substr(locationPath.size());
+        // if (!path.empty() && path[path.size() - 1] == '/')
+        //     path.erase(path.size() - 1);
+        // if (!remainder.empty() && remainder[0] != '/')
+        //     remainder = "/" + remainder;
+        // path = path + remainder;
+        
         if (stat(path.c_str(), &path_stat) == -1)
         {
             response = buildErrorResponse(404, server, req.keep_alive);
@@ -392,24 +394,26 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
         //     root = location->root;
         // std::string fullPath = root + req.path;
 
-        std::string root = server->root;
-        std::string locationPath = "";
-        if (location)
-        {
-            if (!location->root.empty())
-                root = location->root;
-            locationPath = location->path;
-        }
-        std::string remainder = req.path;
-        if (!locationPath.empty()
-            && req.path.compare(0, locationPath.size(), locationPath) == 0
-            && (req.path.size() == locationPath.size() || req.path[locationPath.size()] == '/'))
-            remainder = req.path.substr(locationPath.size());
-        if (!root.empty() && root[root.size() - 1] == '/')
-            root.erase(root.size() - 1);
-        if (!remainder.empty() && remainder[0] != '/')
-            remainder = "/" + remainder;
-        std::string fullPath = root + remainder;
+        std::string fullPath = resolvePath(server, location, req);
+
+        // std::string root = server->root;
+        // std::string locationPath = "";
+        // if (location)
+        // {
+        //     if (!location->root.empty())
+        //         root = location->root;
+        //     locationPath = location->path;
+        // }
+        // std::string remainder = req.path;
+        // if (!locationPath.empty()
+        //     && req.path.compare(0, locationPath.size(), locationPath) == 0
+        //     && (req.path.size() == locationPath.size() || req.path[locationPath.size()] == '/'))
+        //     remainder = req.path.substr(locationPath.size());
+        // if (!root.empty() && root[root.size() - 1] == '/')
+        //     root.erase(root.size() - 1);
+        // if (!remainder.empty() && remainder[0] != '/')
+        //     remainder = "/" + remainder;
+        // std::string fullPath = root + remainder;
         if (fullPath[fullPath.length() - 1] == '/')
         {
             response = buildErrorResponse(400, server, req.keep_alive);
@@ -492,10 +496,37 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
     }
     else if (req.method == "DELETE")
     {
-        std::string path = server->root;
-        if (location && !location->root.empty())
-            path = location->root;
-        path = path + req.path;
+        // std::string path = server->root;
+        // if (location && !location->root.empty())
+        //     path = location->root;
+        // path = path + req.path;
+
+        // std::string root = server->root;
+        // std::string locationPath = "";
+        // if (location)
+        // {
+        //     if (!location->root.empty())
+        //         root = location->root;
+        //     locationPath = location->path;
+        // }
+        // std::string remainder = req.path;
+        // if (!locationPath.empty()
+        //     && req.path.compare(0, locationPath.size(), locationPath) == 0
+        //     && (req.path.size() == locationPath.size() || req.path[locationPath.size()] == '/'))
+        //     remainder = req.path.substr(locationPath.size());
+        // if (!root.empty() && root[root.size() - 1] == '/')
+        //     root.erase(root.size() - 1);
+        // if (!remainder.empty() && remainder[0] != '/')
+        //     remainder = "/" + remainder;
+        // std::string path = root + remainder;
+
+        std::string path = resolvePath(server, location, req);
+
+        if (hasParentTraversal(req.path))
+        {
+            response = buildErrorResponse(403, server, req.keep_alive);
+            return ;
+        }
         if (stat(path.c_str(), &path_stat) == -1)
         {
             response = buildErrorResponse(404, server, req.keep_alive);
