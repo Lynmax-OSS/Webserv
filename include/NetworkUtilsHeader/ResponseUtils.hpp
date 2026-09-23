@@ -16,6 +16,7 @@
 # include <string>
 # include <map>
 # include "../ConfigHeader/ServerConfig.hpp"
+# include "../../include/ParserHeader/HttpRequest.hpp"
 
 std::string getReasonPhrase(int status);
 std::string getMimeType(const std::string &path);
@@ -24,5 +25,6 @@ std::string buildResponse(int status, const std::map<std::string, std::string> &
 std::string buildErrorResponse(int status, const ServerConfig *server, bool keepAlive);
 std::string buildAutoIndexPage(const std::string &urlPath, const std::string &dirPath, const std::vector<std::string> &names);
 bool		hasParentTraversal(const std::string &path);
+std::string	resolvePath(const ServerConfig *server, const LocationConfig *location, const HttpRequest &req);
 
 #endif
