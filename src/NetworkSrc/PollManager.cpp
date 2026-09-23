@@ -256,7 +256,11 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
         response = buildErrorResponse(500, NULL, false);
         return;
     }
-
+    if (hasParentTraversal(req.path))
+    {
+        response = buildErrorResponse(403, server, req.keep_alive);
+        return ;
+    }
     const LocationConfig* location = NULL;
     {
         size_t longestMatch = 0;
@@ -298,9 +302,21 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
     if (req.method == "GET")
     {
         std::string path = server->root;
-        if (location && !location->root.empty())
-            path = location->root;
-        path = path + req.path;
+        std::string locationPath = "";
+        if (location)
+        {
+            if (!location->root.empty())
+                path = location->root;
+            locationPath = location->path;
+        }
+        std::string remainder = req.path;
+        if (!locationPath.empty() && req.path.compare(0, locationPath.size(), locationPath) == 0 && (req.path.size() == locationPath.size() || req.path[locationPath.size()] == '/'))
+            remainder = req.path.substr(locationPath.size());
+        if (!path.empty() && path[path.size() - 1] == '/')
+            path.erase(path.size() - 1);
+        if (!remainder.empty() && remainder[0] != '/')
+            remainder = "/" + remainder;
+        path = path + remainder;
         if (stat(path.c_str(), &path_stat) == -1)
         {
             response = buildErrorResponse(404, server, req.keep_alive);
@@ -320,8 +336,6 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
             else
             {
                 std::vector<std::string> autoIndexList;
-                std::cout << "location: " << (location ? location->path : "NULL") << std::endl;
-                std::cout << "autoindex: " << location->autoindex << std::endl;
                 if (!location || !location->autoindex)
                 {
                     response = buildErrorResponse(404, server, req.keep_alive);
@@ -361,7 +375,6 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
             response = buildErrorResponse(500, server, req.keep_alive);
             return ;
         }
-        std::cout << "location: " << (location ? location->path : "NULL") << std::endl;
         std::map<std::string, std::string> headers;
         headers["Content-Type"] = getMimeType(filePath);
         response = buildResponse(200, headers, body, req.keep_alive);
@@ -371,7 +384,111 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
         //     path = path + *it;
         //     std::cout << path << std::endl;
         // }
-        
+    }
+    else if (req.method == "POST")
+    {
+        // std::string root = server->root;
+        // if (location && !location->root.empty())
+        //     root = location->root;
+        // std::string fullPath = root + req.path;
+
+        std::string root = server->root;
+        std::string locationPath = "";
+        if (location)
+        {
+            if (!location->root.empty())
+                root = location->root;
+            locationPath = location->path;
+        }
+        std::string remainder = req.path;
+        if (!locationPath.empty()
+            && req.path.compare(0, locationPath.size(), locationPath) == 0
+            && (req.path.size() == locationPath.size() || req.path[locationPath.size()] == '/'))
+            remainder = req.path.substr(locationPath.size());
+        if (!root.empty() && root[root.size() - 1] == '/')
+            root.erase(root.size() - 1);
+        if (!remainder.empty() && remainder[0] != '/')
+            remainder = "/" + remainder;
+        std::string fullPath = root + remainder;
+        if (fullPath[fullPath.length() - 1] == '/')
+        {
+            response = buildErrorResponse(400, server, req.keep_alive);
+            return ;
+        }
+        if (hasParentTraversal(req.path))
+        {
+            response = buildErrorResponse(403, server, req.keep_alive);
+            return ;
+        }
+        if (req.content_length > server->client_max_body_size)
+        {
+            response = buildErrorResponse(413, server, req.keep_alive);
+            return ;
+        }
+        size_t  slash = fullPath.rfind('/');
+        std::string parentDir = fullPath.substr(0, slash);
+        struct stat dirStat;
+        if (stat(parentDir.c_str(), &dirStat) == -1)
+        {
+            response = buildErrorResponse(404, server, req.keep_alive);
+            return ;
+        }
+        if (!S_ISDIR(dirStat.st_mode))
+        {
+            response = buildErrorResponse(404, server, req.keep_alive);
+            return ;
+        }
+        if (access(parentDir.c_str(), W_OK) == -1)
+        {
+            response = buildErrorResponse(403, server, req.keep_alive);
+            return ;
+        }
+        struct stat fileStat;
+        if (stat(fullPath.c_str(), &fileStat) == 0)
+        {
+            if (S_ISDIR(fileStat.st_mode))
+            {
+                response = buildErrorResponse(400, server, req.keep_alive);
+                return ;
+            }
+            else if (S_ISREG(fileStat.st_mode))
+            {
+                std::ofstream   outFile(fullPath.c_str(), std::ios::binary | std::ios::trunc);
+                if (!outFile.is_open())
+                {
+                    response = buildErrorResponse(500, server, req.keep_alive);
+                    return;
+                }
+                outFile.write(req.body.c_str(), req.body.size());
+                if (outFile.fail())
+                {
+                    response = buildErrorResponse(500, server, req.keep_alive);
+                    return ;
+                }
+                outFile.close();
+                std::map<std::string, std::string> headers;
+                headers["Location"] = req.path;
+                response = buildResponse(201, headers, "", req.keep_alive);
+                return;
+            }
+        }
+        std::ofstream   outFile(fullPath.c_str(), std::ios::binary);
+        if (!outFile.is_open())
+        {
+            response = buildErrorResponse(500, server, req.keep_alive);
+            return;
+        }
+        outFile.write(req.body.c_str(), req.body.size());
+        if (outFile.fail())
+        {
+            response = buildErrorResponse(500, server, req.keep_alive);
+            return ;
+        }
+        outFile.close();
+        std::map<std::string, std::string> headers;
+        headers["Location"] = req.path;
+        response = buildResponse(201, headers, "", req.keep_alive);
+        return;
     }
     else if (req.method == "DELETE")
     {
