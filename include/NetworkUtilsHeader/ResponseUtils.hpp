@@ -26,5 +26,6 @@ std::string buildErrorResponse(int status, const ServerConfig *server, bool keep
 std::string buildAutoIndexPage(const std::string &urlPath, const std::string &dirPath, const std::vector<std::string> &names);
 bool		hasParentTraversal(const std::string &path);
 std::string	resolvePath(const ServerConfig *server, const LocationConfig *location, const HttpRequest &req);
+std::string getExtension(const std::string &path);
 
 #endif
