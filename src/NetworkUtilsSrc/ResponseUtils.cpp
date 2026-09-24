@@ -175,3 +175,16 @@ std::string resolvePath(const ServerConfig *server, const LocationConfig *locati
     path = path + remainder;
     return (path);
 }
+
+std::string getExtension(const std::string &path)
+{
+    std::string path = "/cgi-bin/hello.py?name=yogi";
+	size_t location = path.find('?');
+	std::string filteredPath = path.substr(0, location);
+	size_t dotLocation = filteredPath.find_last_of('.');
+	size_t slashLocation = filteredPath.find_last_of('/');
+
+	if ((dotLocation == std::string::npos) || (slashLocation != std::string::npos && dotLocation < slashLocation))
+		std::cout << "" << std::endl;
+	std::cout << filteredPath.substr(dotLocation) << std::endl; 
+}
