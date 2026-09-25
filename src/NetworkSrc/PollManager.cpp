@@ -452,33 +452,16 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
             return ;
         }
         struct stat fileStat;
-        if (stat(fullPath.c_str(), &fileStat) == 0)
+        if (stat(fullPath.c_str(), &fileStat) == 0 && S_ISDIR(fileStat.st_mode))
         {
-            if (S_ISDIR(fileStat.st_mode))
-            {
-                response = buildErrorResponse(400, server, req.keep_alive);
-                return ;
-            }
-            else if (S_ISREG(fileStat.st_mode))
-            {
-                std::ofstream   outFile(fullPath.c_str(), std::ios::binary | std::ios::trunc);
-                if (!outFile.is_open())
-                {
-                    response = buildErrorResponse(500, server, req.keep_alive);
-                    return;
-                }
-                outFile.write(req.body.c_str(), req.body.size());
-                if (outFile.fail())
-                {
-                    response = buildErrorResponse(500, server, req.keep_alive);
-                    return ;
-                }
-                outFile.close();
-                std::map<std::string, std::string> headers;
-                headers["Location"] = req.path;
-                response = buildResponse(201, headers, "", req.keep_alive);
-                return;
-            }
+            response = buildErrorResponse(400, server, req.keep_alive);
+            return ;
+        }
+        fullPath = getUniqueFileName(fullPath);
+        if (fullPath.empty())
+        {
+            response = buildErrorResponse(500, server, req.keep_alive);
+            return;
         }
         std::ofstream   outFile(fullPath.c_str(), std::ios::binary);
         if (!outFile.is_open())
@@ -487,14 +470,15 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
             return;
         }
         outFile.write(req.body.c_str(), req.body.size());
+        outFile.close();
         if (outFile.fail())
         {
             response = buildErrorResponse(500, server, req.keep_alive);
             return ;
         }
-        outFile.close();
+        std::string savedName = fullPath.substr(fullPath.rfind('/') + 1);
         std::map<std::string, std::string> headers;
-        headers["Location"] = req.path;
+        headers["Location"] = req.path.substr(0, req.path.rfind('/') + 1) + savedName;
         response = buildResponse(201, headers, "", req.keep_alive);
         return;
     }
