@@ -6,7 +6,7 @@
 /*   By: yosherau <yosherau@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/11 19:04:39 by yosherau          #+#    #+#             */
-/*   Updated: 2026/10/11 17:40:08 by yosherau         ###   ########.fr       */
+/*   Updated: 2026/09/25 11:27:25 by yosherau         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -207,16 +207,17 @@ std::string getUniqueFileName(const std::string &path)
     dotLocation = path.find_last_of('.');
     slashLocation = path.find_last_of('/');
     base = path;
-    if (dotLocation != std::string::npos)
+    if (dotLocation != std::string::npos && (slashLocation == std::string::npos || dotLocation > slashLocation + 1))
     {
         base = path.substr(0, dotLocation);
         extension = path.substr(dotLocation);
     }
     for (int index = 1; index < 10; index++)
     {
-        std::string candidate = base + "(" + std::to_string(index) + ")" + extension;
-        if (!pathExists(candidate))
-            return (candidate);
+        std::stringstream   oss;
+        oss << base + "(" << index << ")" << extension;
+        if (!pathExists(oss.str()))
+            return (oss.str());
     }
-    
+    return ("");
 }
