@@ -1,6 +1,7 @@
 #include "../../include/Webserv.hpp"
 #include "../../include/NetworkHeader/PollManager.hpp"
 #include "../../include/NetworkUtilsHeader/ResponseUtils.hpp"
+#include "../../include/NetworkUtilsHeader/CGI.hpp"
 
 // Constructor / Destructor / Copy
 # include <dirent.h>
@@ -295,6 +296,12 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
         headers["Location"] = location->return_url;
         response = buildResponse(location->return_code, headers, "", req.keep_alive);
         return;
+    }
+
+    if (!location->cgi_extension.empty() && location->cgi_extension == getExtension(req.uri))
+    {
+        response = handleCGI(req, server, location, resolvePath(server, location, req));
+        return ;
     }
     if (req.method == "GET")
     {
