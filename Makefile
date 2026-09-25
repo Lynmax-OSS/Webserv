@@ -13,7 +13,8 @@ SRCS = src/main.cpp \
        src/NetworkSrc/PollManager.cpp \
        src/NetworkSrc/ServerSocket.cpp \
        src/NetworkSrc/SocketManager.cpp \
-       src/NetworkUtilsSrc//ResponseUtils.cpp
+       src/NetworkUtilsSrc/ResponseUtils.cpp \
+       src/NetworkUtilsSrc/CGI.cpp 
 
 OBJS = $(SRCS:.cpp=.o)
 
