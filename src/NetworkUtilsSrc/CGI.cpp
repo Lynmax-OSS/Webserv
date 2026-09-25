@@ -6,7 +6,7 @@
 /*   By: yosherau <yosherau@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/24 03:02:39 by yosherau          #+#    #+#             */
-/*   Updated: 2026/09/24 12:59:47 by yosherau         ###   ########.fr       */
+/*   Updated: 2026/09/25 11:35:24 by yosherau         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -37,7 +37,7 @@ std::string handleCGI(const HttpRequest &req, const ServerConfig *server, const 
 	return (buildResponse(status, headers, body, req.keep_alive));
 }
 
-static void parseCgiOutput(const std::string &output, int &statusCode,
+void parseCgiOutput(const std::string &output, int &statusCode,
                            std::string &contentType, std::string &body)
 {
     statusCode = 200;
