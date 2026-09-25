@@ -6,7 +6,7 @@
 /*   By: yosherau <yosherau@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/11 19:04:39 by yosherau          #+#    #+#             */
-/*   Updated: 2026/09/11 20:27:05 by yosherau         ###   ########.fr       */
+/*   Updated: 2026/09/24 03:47:36 by yosherau         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -178,13 +178,12 @@ std::string resolvePath(const ServerConfig *server, const LocationConfig *locati
 
 std::string getExtension(const std::string &path)
 {
-    std::string path = "/cgi-bin/hello.py?name=yogi";
 	size_t location = path.find('?');
 	std::string filteredPath = path.substr(0, location);
 	size_t dotLocation = filteredPath.find_last_of('.');
 	size_t slashLocation = filteredPath.find_last_of('/');
 
 	if ((dotLocation == std::string::npos) || (slashLocation != std::string::npos && dotLocation < slashLocation))
-		std::cout << "" << std::endl;
-	std::cout << filteredPath.substr(dotLocation) << std::endl; 
+        return ("");
+	return (filteredPath.substr(dotLocation));
 }
