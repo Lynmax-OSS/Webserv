@@ -6,7 +6,7 @@
 /*   By: yosherau <yosherau@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/11 18:58:27 by yosherau          #+#    #+#             */
-/*   Updated: 2026/09/11 20:21:20 by yosherau         ###   ########.fr       */
+/*   Updated: 2026/10/11 15:21:19 by yosherau         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -27,5 +27,6 @@ std::string buildAutoIndexPage(const std::string &urlPath, const std::string &di
 bool		hasParentTraversal(const std::string &path);
 std::string	resolvePath(const ServerConfig *server, const LocationConfig *location, const HttpRequest &req);
 std::string getExtension(const std::string &path);
+std::string	getUniqueFileName(const std::string &path);
 
 #endif
