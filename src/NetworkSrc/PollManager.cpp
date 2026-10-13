@@ -2,12 +2,9 @@
 #include "../../include/NetworkHeader/PollManager.hpp"
 #include "../../include/NetworkUtilsHeader/ResponseUtils.hpp"
 
-// ============================================================
 // Constructor / Destructor
-// ============================================================
-
 PollManager::PollManager(SocketManager &manager, const std::vector<ServerConfig> &configs)
-    : _manager(manager), _configs(configs)
+    : _manager(manager), _configs(configs) 
 {
     const std::vector<ServerSocket*> &socket = manager.getSocket();
     for (size_t i = 0; i < socket.size(); i++)
@@ -16,9 +13,9 @@ PollManager::PollManager(SocketManager &manager, const std::vector<ServerConfig>
 
 PollManager::~PollManager() {}
 
-PollManager::PollManager(const PollManager &other)
+PollManager::PollManager(const PollManager &other) 
     : _manager(other._manager), _poll_fds(other._poll_fds),
-      _clients(other._clients), _configs(other._configs)
+      _clients(other._clients), _configs(other._configs) 
 {}
 
 PollManager &PollManager::operator=(const PollManager &other)
@@ -26,16 +23,14 @@ PollManager &PollManager::operator=(const PollManager &other)
     if (this != &other)
     {
         _poll_fds = other._poll_fds;
-        _clients = other._clients;
-        _configs = other._configs;
+        _clients = other._clients; 
+        _configs = other._configs; 
     }
     return (*this);
 }
 
-// ============================================================
-// Poll management
-// ============================================================
 
+// Poll management
 void PollManager::addFd(int fd, short events)
 {
     pollfd pfd;
@@ -52,7 +47,7 @@ void PollManager::removeFd(int fd)
         if (_poll_fds[i].fd == fd)
         {
             _poll_fds.erase(_poll_fds.begin() + i);
-            return;
+            return ;
         }
     }
 }
@@ -78,7 +73,7 @@ void PollManager::handleNewConnections(int server_fd)
     if (client_fd == -1)
     {
         std::cerr << "accept() failed: " << strerror(errno) << "\n";
-        return;
+        return ;
     }
 
     // Set non-blocking
@@ -90,9 +85,7 @@ void PollManager::handleNewConnections(int server_fd)
     addFd(client_fd, POLLIN | POLLOUT);
 }
 
-// ============================================================
 // Client I/O
-// ============================================================
 
 ssize_t PollManager::readFromClient(int fd)
 {
@@ -119,7 +112,7 @@ void PollManager::handleClientRead(int fd)
         if (bytes < 0)            // actual read error
             std::cerr << "read error on fd " << fd << ": " << strerror(errno) << "\n";
         closeConnection(fd);
-        return;
+        return ;
     }
 
     ClientConnection& conn = _clients[fd];
@@ -138,9 +131,7 @@ void PollManager::handleClientWrite(int fd)
     sendResponse(fd);
 }
 
-// ============================================================
 // Request handling
-// ============================================================
 
 void PollManager::processRequest(int fd)
 {
@@ -185,7 +176,7 @@ void PollManager::sendResponse(int fd)
 {
     ClientConnection& conn = _clients[fd];
     if (conn.getWriteBuffer().empty())
-        return;
+        return ;
 
     ssize_t written = write(fd, conn.getWriteBuffer().c_str(),
                             conn.getWriteBuffer().size());
@@ -194,10 +185,7 @@ void PollManager::sendResponse(int fd)
     // If written == -1 && errno == EAGAIN, keep buffer for next POLLOUT
 }
 
-// ============================================================
 // Cleanup
-// ============================================================
-
 void PollManager::closeConnection(int fd)
 {
     std::cout << "Closing connection on fd " << fd << "\n";
@@ -206,9 +194,7 @@ void PollManager::closeConnection(int fd)
     _clients.erase(fd);
 }
 
-// ============================================================
 // Main handler (to be implemented by Member 3)
-// ============================================================
 
 void PollManager::handleRequest(const HttpRequest& req, const std::vector<ServerConfig>& configs, std::string& response)
 {
@@ -249,7 +235,7 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
     if (server == NULL)
     {
         response = buildErrorResponse(500, NULL, false);
-        return;
+        return ;
     }
 
     const LocationConfig* location = NULL;
@@ -280,7 +266,7 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
         if (!allowed)
         {
             response = buildErrorResponse(405, server, false);
-            return;
+            return ;
         }
     }
     if (location != NULL && location->return_code != 0)
@@ -288,7 +274,7 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
         std::map<std::string, std::string> headers;
         headers["Location"] = location->return_url;
         response = buildResponse(location->return_code, headers, "", req.keep_alive);
-        return;
+        return ;
     }
     if (req.method == "GET")
     {
@@ -297,10 +283,7 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
     }
 }
 
-// ============================================================
 // Main loop
-// ============================================================
-
 void PollManager::run()
 {
     std::cout << "Server running...\n";
