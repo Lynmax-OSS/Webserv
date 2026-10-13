@@ -1,5 +1,6 @@
 #include "../../include/Webserv.hpp"
 #include "../../include/NetworkHeader/PollManager.hpp"
+<<<<<<< HEAD
 #include "../../include/NetworkUtilsHeader/ResponseUtils.hpp"
 #include "../../include/NetworkUtilsHeader/CGI.hpp"
 
@@ -9,8 +10,12 @@
 # include <dirent.h>
 # include <algorithm>
 
+=======
+
+// Constructor / Destructor / Copy
+>>>>>>> 587633e (Refactor PollManager constructor & separated)
 PollManager::PollManager(SocketManager &manager, const std::vector<ServerConfig> &configs)
-    : _manager(manager), _configs(configs) 
+    : _manager(manager), _configs(configs)
 {
     const std::vector<ServerSocket*> &socket = manager.getSocket();
     for (size_t i = 0; i < socket.size(); i++)
@@ -19,9 +24,9 @@ PollManager::PollManager(SocketManager &manager, const std::vector<ServerConfig>
 
 PollManager::~PollManager() {}
 
-PollManager::PollManager(const PollManager &other) 
+PollManager::PollManager(const PollManager &other)
     : _manager(other._manager), _poll_fds(other._poll_fds),
-      _clients(other._clients), _configs(other._configs) 
+      _clients(other._clients), _configs(other._configs)
 {}
 
 PollManager &PollManager::operator=(const PollManager &other)
@@ -29,12 +34,13 @@ PollManager &PollManager::operator=(const PollManager &other)
     if (this != &other)
     {
         _poll_fds = other._poll_fds;
-        _clients = other._clients; 
-        _configs = other._configs; 
+        _clients = other._clients;
+        _configs = other._configs;
     }
     return (*this);
 }
 
+<<<<<<< HEAD
 
 // Poll management
 void PollManager::addFd(int fd, short events)
@@ -534,6 +540,8 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
     }
 }
 
+=======
+>>>>>>> 587633e (Refactor PollManager constructor & separated)
 // Main loop
 void PollManager::run()
 {
@@ -549,8 +557,8 @@ void PollManager::run()
             if (it->second.isTimeout(now, 60))
             {
                 std::cout << "Timeout on fd " << it->first << std::endl;
-				int fd = it->first;
-				++it;
+                int fd = it->first;
+                ++it;
                 closeConnection(fd);
             }
             else
