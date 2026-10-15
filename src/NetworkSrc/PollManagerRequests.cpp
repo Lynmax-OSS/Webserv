@@ -125,7 +125,7 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
     }
     if (req.method == "GET")
     {
-        buildErrorResponse(500, server, req.keep_alive);
+        reponse = buildErrorResponse(500, server, req.keep_alive);
         return ;
     }
 }
