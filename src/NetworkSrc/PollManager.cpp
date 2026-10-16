@@ -456,11 +456,14 @@ void PollManager::run()
 // // Constructor / Destructor / Copy
 // PollManager::PollManager(SocketManager &manager, const std::vector<ServerConfig> &configs)
 //     : _manager(manager), _configs(configs)
-// {
+// {   // Walk the vector, not fd numbers.
+//     //   i     		   → position in the vector
+//     //   socket[i]     → pointer to one ServerSocket
+//     //   socket[i]->fd → that socket's OS-assigned fd (e.g. 3, 7, ...)
 //     const std::vector<ServerSocket*> &socket = manager.getSocket(); //get list of socket
 //     for (size_t i = 0; i < socket.size(); i++) 
-//         addFd(socket[i]->fd, POLLIN); //POLLIN - "readable" event flag
-// } // 
+//         addFd(socket[i]->fd, POLLIN); //Watch that socket's fd for readable events
+// } //POLLIN - "readable" event flag || wake me on new connections
 
 // PollManager::~PollManager() {}
 
@@ -481,23 +484,17 @@ void PollManager::run()
 // }
 
 // // Main loop
-// void PollManager::run()
+// void PollManager::run() //infinite loop that asks the OS if anyone is ready, then handles them
 // {
 //     std::cout << "Server running...\n";
 //     while (true)
 //     {	int ready = poll(_poll_fds.data(), _poll_fds.size(), 1000);
-
-//         // Timeout checks
-//         time_t now = time(NULL);
-//         for (std::map<int, ClientConnection>::iterator it = _clients.begin(); it != _clients.end();)
-//         {   if (it->second.isTimeout(now, 60))
-//             {	std::cout << "Timeout on fd " << it->first << std::endl;
-//                 int fd = it->first;
-//                 ++it;
-//                 closeConnection(fd); }
-//             else
-//                 ++it; }
-
+// 		// poll() sleeps until something happens, or until 1 second passes.
+// 		// and only wakes up when is triggered when any watched fd has news
+// 		// and will timeout after 1 second if no event on any watched fd
+        
+// 		// Timeout checks
+// 		kickIdleClients(time(NULL), 60);
 //         if (ready == -1)
 //             throw std::runtime_error("poll() failed");
 
