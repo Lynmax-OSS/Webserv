@@ -11,6 +11,7 @@
 # include <fcntl.h>
 # include <vector>
 # include <sys/stat.h>
+# include <ctime>
 
 class PollManager
 {
@@ -44,6 +45,7 @@ class PollManager
 
 		// Cleanup
 		void	closeConnection(int fd);
+		void	kickIdleClients(time_t now, int timeout_sec);
 
 		// Main handler to be implemented by Member 3
 		void	handleRequest(const HttpRequest& req, const std::vector<ServerConfig>& configs, std::string& response);
