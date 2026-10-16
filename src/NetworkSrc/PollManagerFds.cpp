@@ -1,6 +1,18 @@
 #include "../../include/NetworkHeader/PollManager.hpp"
 #include <unistd.h>
 
+//kick clients idle longer than 1000ms
+void PollManager::kickIdleClients(time_t now, int timeout_sec)
+{   for (std::map<int, ClientConnection>::iterator it = _clients.begin();
+         it != _clients.end(); )
+    {   if (it->second.isTimeout(now, timeout_sec))
+        {   std::cout << "Timeout on fd " << it->first << "\n";
+            int fd = it->first;
+            ++it;
+            closeConnection(fd); }
+        else
+            ++it; } }
+
 // Poll fd bookkeeping
 void PollManager::addFd(int fd, short events)
 {
