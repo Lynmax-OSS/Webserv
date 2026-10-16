@@ -50,107 +50,6 @@ PollManager &PollManager::operator=(const PollManager &other)
     return (*this);
 }
 
-// ============================================================
-// Poll management
-// ============================================================
-
-void PollManager::addFd(int fd, short events)
-{
-    pollfd pfd;
-    pfd.fd = fd;
-    pfd.events = events;
-    pfd.revents = 0;
-    _poll_fds.push_back(pfd);
-}
-
-void PollManager::removeFd(int fd)
-{
-    for (size_t i = 0; i < _poll_fds.size(); i++)
-    {
-        if (_poll_fds[i].fd == fd)
-        {
-            _poll_fds.erase(_poll_fds.begin() + i);
-            return;
-        }
-    }
-}
-
-bool PollManager::isServerFd(int fd) const
-{
-    const std::vector<ServerSocket*> &sockets = _manager.getSocket();
-    for (size_t i = 0; i < sockets.size(); i++)
-    {
-        if (sockets[i]->fd == fd)
-            return (true);
-    }
-    return (false);
-}
-
-void PollManager::handleNewConnections(int server_fd)
-{
-    sockaddr_in client_addr;
-    socklen_t   client_len = sizeof(client_addr);
-    std::memset(&client_addr, 0, sizeof(client_addr));
-
-    int client_fd = accept(server_fd, (sockaddr*)&client_addr, &client_len);
-    if (client_fd == -1)
-    {
-        std::cerr << "accept() failed: " << strerror(errno) << "\n";
-        return;
-    }
-
-    // Set non-blocking
-    int flags = fcntl(client_fd, F_GETFL, 0);
-    fcntl(client_fd, F_SETFL, flags | O_NONBLOCK);
-
-    std::cout << "Client connected on fd " << client_fd << "\n";
-    _clients[client_fd] = ClientConnection(client_fd);
-    addFd(client_fd, POLLIN | POLLOUT);
-}
-
-// ============================================================
-// Client I/O
-// ============================================================
-
-ssize_t PollManager::readFromClient(int fd)
-{
-    char buf[4096];
-    std::memset(buf, 0, sizeof(buf));
-
-    ssize_t bytes = read(fd, buf, sizeof(buf) - 1);
-    if (bytes < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
-        return 0;                 // no data ready, treat as 0 bytes read (not an error)
-    if (bytes <= 0)
-        return bytes;             // 0 or negative -> disconnect or error
-
-    ClientConnection& conn = _clients[fd];
-    conn.getParser().feed(std::string(buf, bytes));
-    conn.updateActivity();
-    return bytes;
-}
-
-void PollManager::handleClientRead(int fd)
-{
-    ssize_t bytes = readFromClient(fd);
-    if (bytes <= 0)
-    {
-        if (bytes < 0)            // actual read error
-            std::cerr << "read error on fd " << fd << ": " << strerror(errno) << "\n";
-        closeConnection(fd);
-        return;
-    }
-
-    ClientConnection& conn = _clients[fd];
-    while (conn.getParser().isComplete())
-    {
-        processRequest(fd);
-
-        // If keep-alive and response sent fully, continue to next request
-        if (!conn.isKeepAlive() || !conn.getWriteBuffer().empty())
-            break;
-    }
-}
-
 void PollManager::handleClientWrite(int fd)
 {
     sendResponse(fd);
@@ -197,31 +96,6 @@ void PollManager::processRequest(int fd)
         // If not keep-alive, close connection
         closeConnection(fd);
     }
-}
-
-void PollManager::sendResponse(int fd)
-{
-    ClientConnection& conn = _clients[fd];
-    if (conn.getWriteBuffer().empty())
-        return;
-
-    ssize_t written = write(fd, conn.getWriteBuffer().c_str(),
-                            conn.getWriteBuffer().size());
-    if (written > 0)
-        conn.getWriteBuffer().erase(0, written);
-    // If written == -1 && errno == EAGAIN, keep buffer for next POLLOUT
-}
-
-// ============================================================
-// Cleanup
-// ============================================================
-
-void PollManager::closeConnection(int fd)
-{
-    std::cout << "Closing connection on fd " << fd << "\n";
-    removeFd(fd);
-    close(fd);
-    _clients.erase(fd);
 }
 
 // ============================================================
@@ -318,10 +192,8 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
     }
     if (req.method == "GET")
     {
-        std::string path = server->root;
-        if (location && !location->root.empty())
-            path = location->root;
-        path = path + req.path;
+        std::string path = resolvePath(server, location, req);
+
         if (stat(path.c_str(), &path_stat) == -1)
         {
             response = buildErrorResponse(404, server, req.keep_alive);
@@ -392,7 +264,109 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
         //     path = path + *it;
         //     std::cout << path << std::endl;
         // }
-        
+    }
+    else if (req.method == "POST")
+    {
+        std::string fullPath = resolvePath(server, location, req);
+
+        if (fullPath[fullPath.length() - 1] == '/')
+        {
+            response = buildErrorResponse(400, server, req.keep_alive);
+            return ;
+        }
+        if (hasParentTraversal(req.path))
+        {
+            response = buildErrorResponse(403, server, req.keep_alive);
+            return ;
+        }
+        if (req.content_length > server->client_max_body_size)
+        {
+            response = buildErrorResponse(413, server, req.keep_alive);
+            return ;
+        }
+        size_t  slash = fullPath.rfind('/');
+        std::string parentDir = fullPath.substr(0, slash);
+        struct stat dirStat;
+        if (stat(parentDir.c_str(), &dirStat) == -1)
+        {
+            response = buildErrorResponse(404, server, req.keep_alive);
+            return ;
+        }
+        if (!S_ISDIR(dirStat.st_mode))
+        {
+            response = buildErrorResponse(404, server, req.keep_alive);
+            return ;
+        }
+        if (access(parentDir.c_str(), W_OK) == -1)
+        {
+            response = buildErrorResponse(403, server, req.keep_alive);
+            return ;
+        }
+        struct stat fileStat;
+        if (stat(fullPath.c_str(), &fileStat) == 0 && S_ISDIR(fileStat.st_mode))
+        {
+            response = buildErrorResponse(400, server, req.keep_alive);
+            return ;
+        }
+        fullPath = getUniqueFileName(fullPath);
+        if (fullPath.empty())
+        {
+            response = buildErrorResponse(500, server, req.keep_alive);
+            return;
+        }
+        std::ofstream   outFile(fullPath.c_str(), std::ios::binary);
+        if (!outFile.is_open())
+        {
+            response = buildErrorResponse(500, server, req.keep_alive);
+            return;
+        }
+        outFile.write(req.body.c_str(), req.body.size());
+        outFile.close();
+        if (outFile.fail())
+        {
+            response = buildErrorResponse(500, server, req.keep_alive);
+            return ;
+        }
+        std::string savedName = fullPath.substr(fullPath.rfind('/') + 1);
+        std::map<std::string, std::string> headers;
+        headers["Location"] = req.path.substr(0, req.path.rfind('/') + 1) + savedName;
+        response = buildResponse(201, headers, "", req.keep_alive);
+        return;
+    }
+    else if (req.method == "DELETE")
+    {
+        std::string path = resolvePath(server, location, req);
+
+        if (hasParentTraversal(req.path))
+        {
+            response = buildErrorResponse(403, server, req.keep_alive);
+            return ;
+        }
+        if (stat(path.c_str(), &path_stat) == -1)
+        {
+            response = buildErrorResponse(404, server, req.keep_alive);
+            return ;
+        }
+        if (!S_ISREG(path_stat.st_mode))
+        {
+            response = buildErrorResponse(403, server, req.keep_alive);
+            return ;
+        }
+        size_t  slashIndex = path.find_last_of('/');
+        std::string dir = (slashIndex == std::string::npos) ? "." : path.substr(0, slashIndex);
+        if (access(dir.c_str(), W_OK) == -1)
+        {
+            response = buildErrorResponse(403, server, req.keep_alive);
+            return ;
+        }
+        if (std::remove(path.c_str()) != 0)
+        {
+            response = buildErrorResponse(500, server, req.keep_alive);
+            return ;
+        }
+        std::map<std::string, std::string> headers;
+        response = buildResponse(204, headers, "", req.keep_alive);
+        return;
     }
 }
 
