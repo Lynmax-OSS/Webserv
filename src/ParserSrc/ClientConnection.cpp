@@ -11,6 +11,12 @@ ClientConnection::ClientConnection(int fd)
 	updateActivity(); // Set initial time
 }
 
+ClientConnection::ClientConnection(int fd, size_t max_body_size)
+    : _fd(fd), _keep_alive(true) {
+    _parser.setMaxBodySize(max_body_size);
+    updateActivity();
+}
+
 void ClientConnection::updateActivity() {
     _last_activity = time(NULL);
 }

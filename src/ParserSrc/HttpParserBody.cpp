@@ -38,6 +38,11 @@ void HttpParser::_processChunkedData() {
         return ;
     }
 
+    if (_request.body.size() + bytes_to_read > _max_body_size) {
+        _setError(413);
+        return ;
+    }
+
     // Read the bytes
     _request.body += _buffer.substr(0, bytes_to_read);
     _buffer.erase(0, bytes_to_read);
