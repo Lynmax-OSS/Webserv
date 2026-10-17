@@ -20,6 +20,7 @@ struct HttpRequest {
     
     // Flags
     bool keep_alive;             // true if Connection: keep-alive
+    bool has_content_length;
     size_t content_length;          // -1 if not specified
     
     // Error handling
@@ -27,8 +28,9 @@ struct HttpRequest {
     
     // Constructor with defaults
     HttpRequest() 
-        : keep_alive(false), 
-          content_length(-1), 
+        : keep_alive(false),
+          has_content_length(true),
+          content_length(0),
           error_code(0) {}
 };
 
