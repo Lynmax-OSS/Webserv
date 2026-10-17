@@ -66,12 +66,7 @@ void PollManager::handleClientRead(int fd)
     }
 
     ClientConnection& conn = _clients[fd];
-    if (conn.getParser().getRequest().error_code == 413)
-    {
-        closeConnection(fd);
-        return ;
-    }
-    while (conn.getParser().isComplete())
+    while (conn.getParser().isComplete() || conn.getParser().hasError())
     {
         processRequest(fd);
 
