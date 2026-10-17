@@ -34,7 +34,7 @@ time_t HttpParser::getStartTime() const {
 //main function - feed data into the parser
 void HttpParser::feed(const std::string& data) {
     
-    if (!data.empty()) { // Add new data to buffer
+    if (!data.empty() && _state != COMPLETE && _state != ERROR) { // Add new data to buffer
         _buffer += data;
     }
     // If we're in error or complete state, skip processing
