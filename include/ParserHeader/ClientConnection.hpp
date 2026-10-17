@@ -3,12 +3,14 @@
 
 #include "HttpParser.hpp"
 #include <string>
+#include <cstddef>
 
 class ClientConnection {
 public:
     // Constructor
     ClientConnection(); 
     ClientConnection(int fd);
+    ClientConnection(int fd, size_t max_body_size);
     ~ClientConnection();
     
     // Getter

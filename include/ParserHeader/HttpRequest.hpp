@@ -20,7 +20,7 @@ struct HttpRequest {
     
     // Flags
     bool keep_alive;             // true if Connection: keep-alive
-    int content_length;          // -1 if not specified
+    size_t content_length;          // -1 if not specified
     
     // Error handling
     int error_code;              // 0 = OK, 400 = Bad Request, etc.

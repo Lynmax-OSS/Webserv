@@ -19,8 +19,20 @@ void PollManager::handleNewConnections(int server_fd)
     int flags = fcntl(client_fd, F_GETFL, 0);
     fcntl(client_fd, F_SETFL, flags | O_NONBLOCK);
 
+    const std::vector<ServerSocket*> &sockets = _manager.getSocket();
+    size_t socket_index = 0;
+    while (socket_index < sockets.size() && sockets[socket_index]->fd != server_fd)
+        ++socket_index;
+    if (socket_index == sockets.size() || socket_index >= _configs.size())
+    {
+        std::cerr << "No configuration found for server fd " << server_fd << "\n";
+        close(client_fd);
+        return ;
+    }
+
     std::cout << "Client connected on fd " << client_fd << "\n";
-    _clients[client_fd] = ClientConnection(client_fd);
+    _clients[client_fd] = ClientConnection(
+        client_fd, _configs[socket_index].client_max_body_size);
     addFd(client_fd, POLLIN | POLLOUT);
 }
 
@@ -54,6 +66,11 @@ void PollManager::handleClientRead(int fd)
     }
 
     ClientConnection& conn = _clients[fd];
+    if (conn.getParser().getRequest().error_code == 413)
+    {
+        closeConnection(fd);
+        return ;
+    }
     while (conn.getParser().isComplete())
     {
         processRequest(fd);
