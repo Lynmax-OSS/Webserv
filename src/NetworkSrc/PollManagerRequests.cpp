@@ -226,7 +226,7 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
         }
         if (req.has_content_length && req.content_length > server->client_max_body_size)
         {
-            response = buildErrorResponse(413, server, req.keep_alive);
+            response = buildErrorResponse(413, server, false);
             return ;
         }
         size_t  slash = fullPath.rfind('/');
@@ -256,7 +256,7 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
         fullPath = getUniqueFileName(fullPath);
         if (fullPath.empty())
         {
-            response = buildErrorResponse(500, server, req.keep_alive);
+            response = buildErrorResponse(409, server, req.keep_alive);
             return;
         }
         std::ofstream   outFile(fullPath.c_str(), std::ios::binary);
