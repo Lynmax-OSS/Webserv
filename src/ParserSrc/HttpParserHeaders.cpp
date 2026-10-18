@@ -79,7 +79,13 @@ void HttpParser::_finishHeaders() {
     }
     //Check if content-length exist
     if (_request.headers.find("Content-Length") != _request.headers.end()) {
+        _request.has_content_length = true;
         _request.content_length = atoi(_request.headers["Content-Length"].c_str());
+        if (_request.has_content_length && _request.content_length > _max_body_size) {
+            _state = ERROR;
+            _request.error_code = 413;
+            return ;
+        }
         if (_request.content_length == 0) { // if content len = 0, then no body
             _state = COMPLETE;
             return ;
