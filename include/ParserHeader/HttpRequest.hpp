@@ -29,7 +29,7 @@ struct HttpRequest {
     // Constructor with defaults
     HttpRequest() 
         : keep_alive(false),
-          has_content_length(true),
+          has_content_length(false),
           content_length(0),
           error_code(0) {}
 };
