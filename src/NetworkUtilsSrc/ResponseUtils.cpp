@@ -6,7 +6,7 @@
 /*   By: yosherau <yosherau@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/11 19:04:39 by yosherau          #+#    #+#             */
-/*   Updated: 2026/09/25 11:27:25 by yosherau         ###   ########.fr       */
+/*   Updated: 2026/10/18 09:52:00 by yosherau         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,6 +14,7 @@
 # include <fstream>
 # include <sstream>
 # include <sys/stat.h>
+# include <algorithm>
 
 std::string getReasonPhrase(int status) {
     switch (status) {
@@ -220,4 +221,27 @@ std::string getUniqueFileName(const std::string &path)
             return (oss.str());
     }
     return ("");
+}
+
+void    resolveServer(const ServerConfig **server, const HttpRequest& req, const std::vector<ServerConfig>& configs)
+{
+    std::string host;
+    std::map<std::string, std::string>::const_iterator hostIt = req.headers.find("Host");
+    if (hostIt != req.headers.end())
+        host = hostIt->second;
+
+    int port = 8080;
+    size_t colonPos = host.find(':');
+    if (colonPos != std::string::npos)
+        port = std::atoi(host.substr(colonPos + 1).c_str());
+    for (size_t i = 0; i < configs.size(); ++i)
+    {
+        if (configs[i].port == port)
+        {
+            *server = &configs[i];
+            break;
+        }
+    }
+    if (*server == NULL && !configs.empty())
+        *server = &configs[0]; // fallback to first *server if no match
 }
