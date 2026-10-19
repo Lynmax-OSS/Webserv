@@ -15,12 +15,15 @@ void PollManager::processRequest(int fd)
     {
         // Build error response
         std::ostringstream error_stream;
+        // const ServerConfig* server = NULL;
         error_stream << "HTTP/1.1 " << req.error_code << " Error\r\n"
                     << "Content-Type: text/html\r\n"
                     << "Connection: close\r\n"
                     << "\r\n"
                     << "<h1>Error " << req.error_code << "</h1>";
         conn.getWriteBuffer() = error_stream.str();
+        // resolveServer(&server, req, _configs);
+        // conn.getWriteBuffer() = buildErrorResponse(req.error_code, server, false);
         conn.setKeepAlive(false);   // close after error
     }
     else
@@ -63,27 +66,29 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
     std::string filePath;
 	
     const ServerConfig* server = NULL;
-    {
-        std::string host;
-        std::map<std::string, std::string>::const_iterator hostIt = req.headers.find("Host");
-        if (hostIt != req.headers.end())
-            host = hostIt->second;
+    // {
+    //     std::string host;
+    //     std::map<std::string, std::string>::const_iterator hostIt = req.headers.find("Host");
+    //     if (hostIt != req.headers.end())
+    //         host = hostIt->second;
     
-        int port = 8080;
-        size_t colonPos = host.find(':');
-        if (colonPos != std::string::npos)
-            port = std::atoi(host.substr(colonPos + 1).c_str());
-        for (size_t i = 0; i < configs.size(); ++i)
-        {
-            if (configs[i].port == port)
-            {
-                server = &configs[i];
-                break;
-            }
-        }
-        if (server == NULL && !configs.empty())
-            server = &configs[0]; // fallback to first server if no match
-    }
+    //     int port = 8080;
+    //     size_t colonPos = host.find(':');
+    //     if (colonPos != std::string::npos)
+    //         port = std::atoi(host.substr(colonPos + 1).c_str());
+    //     for (size_t i = 0; i < configs.size(); ++i)
+    //     {
+    //         if (configs[i].port == port)
+    //         {
+    //             server = &configs[i];
+    //             break;
+    //         }
+    //     }
+    //     if (server == NULL && !configs.empty())
+    //         server = &configs[0]; // fallback to first server if no match
+    // }
+    resolveServer(&server, req, configs);
+    
     if (server == NULL)
     {
         response = buildErrorResponse(500, NULL, false);
