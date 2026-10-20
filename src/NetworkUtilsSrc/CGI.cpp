@@ -6,7 +6,7 @@
 /*   By: yosherau <yosherau@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/24 03:02:39 by yosherau          #+#    #+#             */
-/*   Updated: 2026/09/25 11:35:24 by yosherau         ###   ########.fr       */
+/*   Updated: 2026/10/20 11:09:20 by yosherau         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -17,6 +17,7 @@
 # include <unistd.h>
 # include <sstream>
 # include <cstdlib>
+# include <fcntl.h>
 
 std::string handleCGI(const HttpRequest &req, const ServerConfig *server, const LocationConfig *location, const std::string &scriptPath)
 {
@@ -118,7 +119,12 @@ bool	runCGI(std::string cgi_path, std::string script_path, const HttpRequest &re
 	argv[0] = const_cast<char *>(cgi_path.c_str());
 	argv[1] = const_cast<char *>(script_path.c_str());
 	argv[2] = NULL;
-	
+
+	int flags = fcntl(parentFD[0], F_GETFL);
+	fcntl(parentFD[0], F_SETFL, flags | O_NONBLOCK);
+	flags = fcntl(childFD[1], F_GETFL);
+	fcntl(childFD[1], F_SETFL, flags | O_NONBLOCK);
+
 	pid_t	pid = fork();
 	if (pid < 0)
 	{
