@@ -349,25 +349,26 @@ void PollManager::run() //infinite loop that asks the OS if anyone is ready, the
 		// and only wakes up when is triggered when any watched fd has news
 		// and will timeout after 1 second if no event on any watched fd
         
-		// Timeout checks
-		kickIdleClients(time(NULL), 60);
+		// Timeout checks - kick clients that havent sent anything in 60 sec
+		kickIdleClients(time(NULL), 60); // nc localhost 8080
         if (ready == -1)
             throw std::runtime_error("poll() failed");
-
+		// walk through every watched fd, one by one
         for (size_t i = 0; i < _poll_fds.size(); i++)
-        {	if (_poll_fds[i].revents == 0)
-                continue;
+        {	if (_poll_fds[i].revents == 0) // if nothing happened on this fd, skip it
+			//events is what you ask for, revents(returned events) is what you get back
+                continue; //i++
             int fd = _poll_fds[i].fd;
-            if (_poll_fds[i].revents & POLLIN)
-            {   if (isServerFd(fd))
-                    handleNewConnections(fd);
+            if (_poll_fds[i].revents & POLLIN) //checks if the POLLIN bit is set inside revents
+            {   if (isServerFd(fd)) //checks if a fd is our listening sockets
+                    handleNewConnections(fd); //if new client connected, accpets them
                 else
-                {	handleClientRead(fd);
+                {	handleClientRead(fd); // if existing client sent data, read it
                     continue ; } }
 
-            if (_poll_fds[i].revents & POLLOUT)
-            {	if (!isServerFd(fd))
-                    handleClientWrite(fd);
+            if (_poll_fds[i].revents & POLLOUT) // check if socket is ready to be written to, so we send the pending response
+            {	if (!isServerFd(fd)) // checks if this is a client fd (not a listening one)
+                    handleClientWrite(fd); //send a pending response
             }
         }
     }
