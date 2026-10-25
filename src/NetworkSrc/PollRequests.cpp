@@ -2,7 +2,7 @@
 #include "../../include/NetworkHeader/PollManager.hpp"
 #include "../../include/NetworkUtilsHeader/ResponseUtils.hpp"
 
-// Process one complete request
+// parsed request is ready, check if ok, then hands off, sends back, and resets or closes
 void PollManager::processRequest(int fd)
 {
     ClientConnection& conn = _clients[fd];
@@ -10,15 +10,15 @@ void PollManager::processRequest(int fd)
 
     if (req.error_code != 0)
     {
-        // Build error response
+        // Build error response for parse error
         std::ostringstream error_stream;
         error_stream << "HTTP/1.1 " << req.error_code << " Error\r\n"
                     << "Content-Type: text/html\r\n"
                     << "Connection: close\r\n"
                     << "\r\n"
                     << "<h1>Error " << req.error_code << "</h1>";
-        conn.getWriteBuffer() = error_stream.str();
-        conn.setKeepAlive(false);   // close after error
+        conn.getWriteBuffer() = error_stream.str(); // turn the strBuilder into str and store in cleint's write buffer
+        conn.setKeepAlive(false); // close after error
     }
     else
     {
@@ -32,8 +32,8 @@ void PollManager::processRequest(int fd)
     // If keep-alive and all data sent, prepare parser for next request
     if (conn.isKeepAlive() && conn.getWriteBuffer().empty())
     {
-        conn.getParser().reset(true);   // keep leftover buffer
-        conn.getParser().feed("");      // process any pipelined data
+        conn.getParser().reset(true); // keep leftover buffer
+        conn.getParser().feed(""); // process any pipelined data
     }
     else
     {
@@ -42,21 +42,8 @@ void PollManager::processRequest(int fd)
     }
 }
 
-// Main handler (to be implemented by Member 3)
 void PollManager::handleRequest(const HttpRequest& req, const std::vector<ServerConfig>& configs, std::string& response)
 {
-    // *************************************************************
-    //  THIS IS THE METHOD MEMBER 3 MUST IMPLEMENT
-    //  -----------------------------------------------------------
-    //  They should:
-    //    - Find the matching ServerConfig (by port or Host header)
-    //    - Find the matching LocationConfig (by req.path)
-    //    - Check allowed methods
-    //    - Serve static files, handle CGI, uploads, etc.
-    //    - Fill `response` with the full HTTP response (including headers)
-    // *************************************************************
-    // For now, return 501 Not Implemented as a placeholder.
-
     const ServerConfig* server = NULL;
     {
         std::string host;
