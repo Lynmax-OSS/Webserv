@@ -39,10 +39,9 @@ bool PollManager::isServerFd(int fd) const
 {
     const std::vector<ServerSocket*> &sockets = _manager.getSocket();
     for (size_t i = 0; i < sockets.size(); i++)
-    {
-        if (sockets[i]->fd == fd)
-            return (true);
-    }
+    { //look through list of listening sockets
+        if (sockets[i]->fd == fd)  //does this listening socket's fd match ours?
+            return (true); } // this fd belongs to a listening socket
     return (false);
 }
 
