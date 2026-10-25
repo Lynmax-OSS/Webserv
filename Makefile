@@ -6,18 +6,18 @@ NAME = webserv
 
 SRCS = src/main.cpp \
        src/ParserSrc/HttpParser.cpp \
-       src/ParserSrc/HttpParserRequestLine.cpp \
-       src/ParserSrc/HttpParserHeaders.cpp \
-       src/ParserSrc/HttpParserBody.cpp \
-       src/ParserSrc/HttpParserChunked.cpp \
+       src/ParserSrc/HttpRequestLine.cpp \
+       src/ParserSrc/HttpHeaders.cpp \
+       src/ParserSrc/HttpBody.cpp \
+       src/ParserSrc/HttpChunked.cpp \
        src/ParserSrc/ClientConnection.cpp \
        src/ConfigSrc/ConfigParser.cpp \
        src/ConfigSrc/ConfigValidator.cpp \
        src/ConfigSrc/Tokenizer.cpp \
        src/NetworkSrc/PollManager.cpp \
-       src/NetworkSrc/PollManagerFds.cpp \
-       src/NetworkSrc/PollManagerIO.cpp \
-       src/NetworkSrc/PollManagerRequests.cpp \
+       src/NetworkSrc/PollFds.cpp \
+       src/NetworkSrc/PollIO.cpp \
+       src/NetworkSrc/PollRequests.cpp \
        src/NetworkSrc/ServerSocket.cpp \
        src/NetworkSrc/SocketManager.cpp \
        src/NetworkUtilsSrc/ResponseUtils.cpp \
