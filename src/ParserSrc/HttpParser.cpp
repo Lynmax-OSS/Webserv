@@ -3,20 +3,20 @@
 //constructor and reset
 HttpParser::HttpParser() {
     reset();
-    _max_body_size = 1024 * 1024; // 1MB default
+    _max_body_size = 1024 * 1024; // 1048576 bytes = 1MB default
     _start_time = time(NULL);
 }
 
 void HttpParser::reset() {
-    reset(false); // Default: clear buffer
+    reset(false); // //clear for next request / set all fields to defaults in one place
 }
 
 void HttpParser::setMaxBodySize(size_t size) {
-    _max_body_size = size;
+    _max_body_size = size; //for setting body limit
 }
 
-void HttpParser::reset(bool keep_buffer) {
-    _state = REQUEST_LINE;
+void HttpParser::reset(bool keep_buffer) { //clear, maybe keep leftover bytes
+    _state = REQUEST_LINE; //set state to "waiting for request line"
     if (!keep_buffer) {
         _buffer.clear();
     }
@@ -24,6 +24,7 @@ void HttpParser::reset(bool keep_buffer) {
     _request = HttpRequest();
     _chunk_size = 0;
     _chunk_bytes_read = 0;
+    _waiting_for_chunk_end = false;
     _start_time = time(NULL);
 }
 
@@ -31,13 +32,13 @@ time_t HttpParser::getStartTime() const {
     return _start_time;
 }
 
-//main function - feed data into the parser
+//receoves mew bytes and ddecides whether to process them
 void HttpParser::feed(const std::string& data) {
     
-    if (!data.empty()) { // Add new data to buffer
+    if (!data.empty()) { // (if)Add new data to buffer
         _buffer += data;
     }
-    // If we're in error or complete state, skip processing
+    // if already done or error, do nothing
     if (_state == COMPLETE || _state == ERROR) {
         return ;
     }
