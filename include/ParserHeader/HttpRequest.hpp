@@ -13,10 +13,10 @@ struct HttpRequest {
     std::string http_version;    // "HTTP/1.1"
     
     // Headers (key -> value)
-    std::map<std::string, std::string> headers;
+    std::map<std::string, std::string> headers; //"{"Host": "localhost:8080", "User-Agent": "Mozilla/5.0", "Accept": "text/html"}"
     
     // Body content
-    std::string body;
+    std::string body;           // GET - "" , DELETE - "" , POST - 
     
     // Flags
     bool keep_alive;             // true if Connection: keep-alive
