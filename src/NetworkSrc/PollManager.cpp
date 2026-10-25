@@ -335,7 +335,6 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
     }
 }
 
-// ============================================================
 // Main loop
 void PollManager::run() //infinite loop that asks the OS if anyone is ready, then handles them
 {
