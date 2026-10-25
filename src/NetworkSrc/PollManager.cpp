@@ -7,11 +7,15 @@
 
 PollManager::PollManager(SocketManager &manager, const std::vector<ServerConfig> &configs)
     : _manager(manager), _configs(configs)
-{
-    const std::vector<ServerSocket*> &socket = manager.getSocket();
-    for (size_t i = 0; i < socket.size(); i++)
-        addFd(socket[i]->fd, POLLIN);
-}
+{   // Walk the vector, not fd numbers.
+    //   i     		   → position in the vector
+    //   socket[i]     → pointer to one ServerSocket
+    //   socket[i]->fd → that socket's OS-assigned fd (e.g. 3, 7, ...)
+    const std::vector<ServerSocket*> &socket = manager.getSocket(); //get list of socket
+    for (size_t i = 0; i < socket.size(); i++) 
+        addFd(socket[i]->fd, POLLIN); //Watch that socket's fd for readable events
+} //POLLIN - "readable" event flag || wake me on new connections
+
 
 PollManager::~PollManager() {}
 
