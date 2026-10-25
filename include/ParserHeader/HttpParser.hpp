@@ -53,6 +53,7 @@ private:
     // Chunked encoding variables
     size_t _chunk_size;
     size_t _chunk_bytes_read;
+    bool   _waiting_for_chunk_end;
     size_t _max_body_size;
 
     time_t _start_time;
