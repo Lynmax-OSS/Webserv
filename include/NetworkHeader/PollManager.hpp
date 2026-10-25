@@ -40,14 +40,14 @@ class PollManager
 		void	handleClientWrite(int fd);
 
 		// Request handling
-		void	processRequest(int fd);   // NEW: processes one complete request
-		void	sendResponse(int fd);     // NEW: writes buffer to socket
+		void	processRequest(int fd);
+		void	sendResponse(int fd);
 
 		// Cleanup
 		void	closeConnection(int fd);
 		void	kickIdleClients(time_t now, int timeout_sec);
 
-		// Main handler to be implemented by Member 3
+		// Main handler
 		void	handleRequest(const HttpRequest& req, const std::vector<ServerConfig>& configs, std::string& response);
 };
 
