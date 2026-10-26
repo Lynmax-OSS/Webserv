@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <vector>
+#include <csignal>
 #include "ConfigHeader/ConfigParser.hpp"
 
 #endif
