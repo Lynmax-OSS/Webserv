@@ -40,7 +40,7 @@ class PollManager
 		void	handleClientWrite(int fd);
 
 		// Request handling
-		void	processRequest(int fd);
+		bool	processRequest(int fd);
 		void	sendResponse(int fd);
 
 		// Cleanup
