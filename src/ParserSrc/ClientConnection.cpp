@@ -37,6 +37,10 @@ bool ClientConnection::isKeepAlive() const {
     return _keep_alive;
 }
 
+void ClientConnection::setKeepAlive(bool keep_alive) {
+    _keep_alive = keep_alive;
+}
+
 bool ClientConnection::isReadClosed() const {
     return _read_closed;
 }
