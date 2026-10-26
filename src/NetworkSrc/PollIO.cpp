@@ -30,53 +30,67 @@ ssize_t PollManager::readFromClient(int fd)
     std::memset(buf, 0, sizeof(buf)); //fill bucket with zeroes to clean it
 
     ssize_t bytes = read(fd, buf, sizeof(buf) - 1); //req OS to store up to 4095 bytes from this socket from buf
-    if (bytes < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) //try again later || nothing to read, but keep the connection open
-        return 0; // no data ready.. not an error
+    // if (bytes < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) //try again later || nothing to read, but keep the connection open
+    //     return 0; // no data ready.. not an error
     if (bytes <= 0)//0 = disconnect, -1 = error,
         return bytes; //return to caller
 
-    ClientConnection& conn = _clients[fd]; //grad this client's stored data from the map
-    conn.getParser().feed(std::string(buf, bytes)); //turn the raw bytes into a string and then feed it into the client's http parser
-    conn.updateActivity(); //update timestamp
+    std::map<int, ClientConnection>::iterator it = _clients.find(fd);
+    if (it == _clients.end())
+        return -1;
+
+    it->second.getParser().feed(std::string(buf, bytes));
+    it->second.updateActivity();
     return bytes;
 }
 
 void PollManager::handleClientRead(int fd)
 {
     ssize_t bytes = readFromClient(fd); //read the bytes
-    if (bytes <= 0)
-    {   // nothin useful came in, so we close and move on
-        if (bytes < 0)
-            std::cerr << "read error on fd " << fd << ": " << strerror(errno) << "\n";
+    if (bytes == 0)
+    {
+        std::map<int, ClientConnection>::iterator it = _clients.find(fd);
+        if (it != _clients.end())
+            it->second.setReadClosed(true);
+        return ;
+    }
+    if (bytes < 0)
+    {
+        std::cerr << "read error on fd " << fd << "\n";
         closeConnection(fd);
         return ;
     }
-    ClientConnection& conn = _clients[fd];
-    while (conn.getParser().isComplete()) //repeat as long as a complete request is ready
+    std::map<int, ClientConnection>::iterator it = _clients.find(fd);
+    if (it == _clients.end())
+        return ;
+    ClientConnection& conn = it->second;
+    while (conn.getParser().isComplete() || conn.getParser().hasError()) //repeat as long as a complete request is ready
     {
-        processRequest(fd); //send the parsed request to be handled and replied to
-
+        if (!processRequest(fd)) //send the parsed request to be handled and replied to
+            return ;
         // stop looping if connection isnt keep-alive or there's still response data not sent yet
         if (!conn.isKeepAlive() || !conn.getWriteBuffer().empty())
             break;
     }
 }
 
-// Writing to a client
-void PollManager::handleClientWrite(int fd)
-{
-    sendResponse(fd);
-}
-
 void PollManager::sendResponse(int fd)
 {
-    ClientConnection& conn = _clients[fd];
+    std::map<int, ClientConnection>::iterator it = _clients.find(fd);
+    if (it == _clients.end())
+        return ;
+    
+    ClientConnection& conn = it->second;
     if (conn.getWriteBuffer().empty())
         return ;
 
     ssize_t written = write(fd, conn.getWriteBuffer().c_str(),
                             conn.getWriteBuffer().size());
+    if (written < 0)
+    {
+        closeConnection(fd);
+        return ;
+    }
     if (written > 0)
         conn.getWriteBuffer().erase(0, written);
-    // If written == -1 && errno == EAGAIN, keep buffer for next POLLOUT
 }
