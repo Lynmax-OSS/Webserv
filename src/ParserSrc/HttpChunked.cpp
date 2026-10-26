@@ -1,5 +1,6 @@
 #include "../../include/ParserHeader/HttpParser.hpp"
 #include <cstdlib>
+#include <cctype>
 
 // exp: "5\r\nhello\r\n3\r\nabc\r\n0\r\n\r\n"
 void HttpParser::_processChunkedSize() {
@@ -9,11 +10,38 @@ void HttpParser::_processChunkedSize() {
     std::string line = _buffer.substr(0, newline_pos);
     _buffer.erase(0, newline_pos + 2);
 
+    // strip optional chunk extensions: "5;ext=val" -> "5"
+    size_t semi = line.find(';');
+    if (semi != std::string::npos)
+        line.erase(semi);
+
+    // Trim trailing whitespace
+    size_t end = line.find_last_not_of(" \t");
+    if (end == std::string::npos) {
+        _setError(400);
+        return ;
+    }
+    line.erase(end + 1);
+
+    // Every character must be a hex digit
+    for (size_t i = 0; i < line.size(); ++i) {
+        if (!std::isxdigit(static_cast<unsigned char>(line[i]))) {
+            _setError(400);
+            return ;
+        }
+    }
+
     // Parse the chunk size into hexnum
     _chunk_size = strtol(line.c_str(), NULL, 16);
 
+    // a chunk can't be larger than the body limit
+    if (_chunk_size > _max_body_size) {
+        _setError(413);
+        return ;
+    }
     // if chunk size is 0, this is the last chunk
     if (_chunk_size == 0) {
+        _request.content_length = static_cast<int>(_request.body.size());
         _state = COMPLETE;
         return ;
     }
