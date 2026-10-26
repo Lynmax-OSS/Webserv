@@ -2,12 +2,12 @@
 #include <ctime>
 
 ClientConnection::ClientConnection() 
-    : _fd(-1), _keep_alive(true) {
+    : _fd(-1), _keep_alive(true), _read_closed(false)  {
     updateActivity();
 }
 
 ClientConnection::ClientConnection(int fd) 
-    : _fd(fd), _keep_alive(true) {
+    : _fd(fd), _keep_alive(true), _read_closed(false)  {
 	updateActivity(); // Set initial time
 }
 
@@ -35,6 +35,14 @@ std::string& ClientConnection::getWriteBuffer() {
 
 bool ClientConnection::isKeepAlive() const {
     return _keep_alive;
+}
+
+bool ClientConnection::isReadClosed() const {
+    return _read_closed;
+}
+
+void ClientConnection::setReadClosed(bool v) {
+    _read_closed = v;
 }
 
 void ClientConnection::setKeepAlive(bool keep_alive) {
