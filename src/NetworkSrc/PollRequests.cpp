@@ -3,44 +3,44 @@
 #include "../../include/NetworkUtilsHeader/ResponseUtils.hpp"
 
 // parsed request is ready, check if ok, then hands off, sends back, and resets or closes
-void PollManager::processRequest(int fd)
-{
-    ClientConnection& conn = _clients[fd];
-    const HttpRequest& req = conn.getParser().getRequest();
+// void PollManager::processRequest(int fd)
+// {
+//     ClientConnection& conn = _clients[fd];
+//     const HttpRequest& req = conn.getParser().getRequest();
 
-    if (req.error_code != 0)
-    {
-        // Build error response for parse error
-        std::ostringstream error_stream;
-        error_stream << "HTTP/1.1 " << req.error_code << " Error\r\n"
-                    << "Content-Type: text/html\r\n"
-                    << "Connection: close\r\n"
-                    << "\r\n"
-                    << "<h1>Error " << req.error_code << "</h1>";
-        conn.getWriteBuffer() = error_stream.str(); // turn the strBuilder into str and store in cleint's write buffer
-        conn.setKeepAlive(false); // close after error
-    }
-    else
-    {
-        std::cout << "✅ Received: " << req.method << " " << req.path << std::endl;
-        handleRequest(req, _configs, conn.getWriteBuffer());
-    }
+//     if (req.error_code != 0)
+//     {
+//         // Build error response for parse error
+//         std::ostringstream error_stream;
+//         error_stream << "HTTP/1.1 " << req.error_code << " Error\r\n"
+//                     << "Content-Type: text/html\r\n"
+//                     << "Connection: close\r\n"
+//                     << "\r\n"
+//                     << "<h1>Error " << req.error_code << "</h1>";
+//         conn.getWriteBuffer() = error_stream.str(); // turn the strBuilder into str and store in cleint's write buffer
+//         conn.setKeepAlive(false); // close after error
+//     }
+//     else
+//     {
+//         std::cout << "✅ Received: " << req.method << " " << req.path << std::endl;
+//         handleRequest(req, _configs, conn.getWriteBuffer());
+//     }
 
-    // Attempt to send the response immediately
-    sendResponse(fd);
+//     // Attempt to send the response immediately
+//     sendResponse(fd);
 
-    // If keep-alive and all data sent, prepare parser for next request
-    if (conn.isKeepAlive() && conn.getWriteBuffer().empty())
-    {
-        conn.getParser().reset(true); // keep leftover buffer
-        conn.getParser().feed(""); // process any pipelined data
-    }
-    else
-    {
-        // If not keep-alive, close connection
-        closeConnection(fd);
-    }
-}
+//     // If keep-alive and all data sent, prepare parser for next request
+//     if (conn.isKeepAlive() && conn.getWriteBuffer().empty())
+//     {
+//         conn.getParser().reset(true); // keep leftover buffer
+//         conn.getParser().feed(""); // process any pipelined data
+//     }
+//     else
+//     {
+//         // If not keep-alive, close connection
+//         closeConnection(fd);
+//     }
+// }
 
 // void PollManager::handleRequest(const HttpRequest& req, const std::vector<ServerConfig>& configs, std::string& response)
 // {
