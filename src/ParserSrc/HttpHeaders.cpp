@@ -1,5 +1,6 @@
 #include "../../include/ParserHeader/HttpParser.hpp"
 #include <cstdlib>
+#include <cctype>
 
 //finished headers example:
 // _request.headers = {
@@ -9,10 +10,10 @@
 //     "User-Agent":       "curl/7.81"
 // }
 void HttpParser::_finishHeaders() {
-    if (_request.headers.find("Connection") != _request.headers.end()) {
-        std::string conn = _request.headers["Connection"];
+    if (_request.headers.find("connection") != _request.headers.end()) {
+        std::string conn = _request.headers["connection"];
         for (size_t i = 0; i < conn.size(); i++)
-            conn[i] = std::tolower(conn[i]);
+            conn[i] = std::tolower(static_cast<unsigned char>(conn[i]));
         if (conn == "keep-alive") 
             _request.keep_alive = true;
         else if (conn == "close") 
@@ -22,7 +23,7 @@ void HttpParser::_finishHeaders() {
         _request.keep_alive = true;
 
     if (_request.http_version == "HTTP/1.1") {
-        if (_request.headers.find("Host") == _request.headers.end()) {
+        if (_request.headers.find("host") == _request.headers.end()) {
             _state = ERROR;
             _request.error_code = 400; //Bad Request
             return ;
@@ -30,8 +31,11 @@ void HttpParser::_finishHeaders() {
     }
 
     bool is_chunked = false;
-    if (_request.headers.find("Transfer-Encoding") != _request.headers.end()) {
-        if (_request.headers["Transfer-Encoding"] == "chunked")
+    if (_request.headers.find("transfer-encoding") != _request.headers.end()) {
+        std::string te = _request.headers["transfer-encoding"];
+        for (size_t i = 0; i < te.size(); ++i)
+            te[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(te[i])));
+        if (te == "chunked")
             is_chunked = true;
     }
     if (is_chunked == true) { //content-length = -1
@@ -42,8 +46,19 @@ void HttpParser::_finishHeaders() {
         return ;
     }
 
-    if (_request.headers.find("Content-Length") != _request.headers.end()) {
-        _request.content_length = atoi(_request.headers["Content-Length"].c_str());
+    if (_request.headers.find("content-length") != _request.headers.end()) {
+        std::string cl = _request.headers["content-length"];
+        if (cl.empty() || cl.size() > 9) {
+            _setError(400);
+            return ;
+        }
+        for (size_t i = 0; i < cl.size(); ++i) {
+            if (!std::isdigit(static_cast<unsigned char>(cl[i]))) {
+                _setError(400);
+                return ;
+            }
+        }
+        _request.content_length = atoi(cl.c_str());
         if (_request.content_length == 0) { // if content len = 0, then no body
             _state = COMPLETE;
             return ;
@@ -80,6 +95,8 @@ bool HttpParser::_parseHeaderLine(const std::string& line) {
         _setError(400); //Bad Request
         return false;
     }
+    for (size_t i = 0; i < key.size(); ++i)
+        key[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(key[i])));
     _request.headers[key] = value; //Store the header
     return true;
 }
