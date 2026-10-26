@@ -38,11 +38,38 @@ PollManager &PollManager::operator=(const PollManager &other)
 void PollManager::handleClientWrite(int fd)
 {
     sendResponse(fd);
+
+    std::map<int, ClientConnection>::iterator it = _clients.find(fd);
+    if (it == _clients.end())
+        return ;
+
+    ClientConnection& conn = it->second;
+    if (!conn.getWriteBuffer().empty())
+        return ;
+    if (conn.isReadClosed())
+    {
+        closeConnection(fd);
+        return ;
+    }
+    if (!conn.isKeepAlive())
+    {
+        closeConnection(fd);
+        return ;
+    }
+
+    conn.getParser().reset(true);
+    conn.getParser().feed("");
+
+    if (conn.getParser().isComplete() || conn.getParser().hasError())
+        processRequest(fd);
+
+    // if (!it->second.isKeepAlive() && it->second.getWriteBuffer().empty())
+    //     closeConnection(fd);
 }
 
 // Request handling
 
-void PollManager::processRequest(int fd)
+bool PollManager::processRequest(int fd)
 {
     ClientConnection& conn = _clients[fd];
     const HttpRequest& req = conn.getParser().getRequest();
@@ -51,7 +78,8 @@ void PollManager::processRequest(int fd)
     {
         // Build error response
         std::ostringstream error_stream;
-        error_stream << "HTTP/1.1 " << req.error_code << " Error\r\n"
+        error_stream << "HTTP/1.1 " << req.error_code << " "
+					<< getReasonPhrase(req.error_code) << "\r\n"
                     << "Content-Type: text/html\r\n"
                     << "Connection: close\r\n"
                     << "\r\n"
@@ -65,20 +93,21 @@ void PollManager::processRequest(int fd)
         handleRequest(req, _configs, conn.getWriteBuffer());
     }
 
-    // Attempt to send the response immediately
-    sendResponse(fd);
+    // // Attempt to send the response immediately
+    // sendResponse(fd);
 
-    // If keep-alive and all data sent, prepare parser for next request
-    if (conn.isKeepAlive() && conn.getWriteBuffer().empty())
-    {
-        conn.getParser().reset(true); // keep leftover buffer
-        conn.getParser().feed(""); // process any pipelined data
-    }
-    else
-    {
-        // If not keep-alive, close connection
-        closeConnection(fd);
-    }
+    // // If keep-alive and all data sent, prepare parser for next request
+    // if (conn.isKeepAlive() && conn.getWriteBuffer().empty())
+    // {
+    //     conn.getParser().reset(true); // keep leftover buffer
+    //     conn.getParser().feed(""); // process any pipelined data
+    // }
+    // else
+    // {
+    //     // If not keep-alive, close connection
+    //     closeConnection(fd);
+    // }
+	return conn.isKeepAlive();
 }
 
 void PollManager::handleRequest(const HttpRequest& req, const std::vector<ServerConfig>& configs, std::string& response)
@@ -157,7 +186,7 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
         return;
     }
 
-    if (!location->cgi_extension.empty() && location->cgi_extension == getExtension(req.uri))
+    if (location && !location->cgi_extension.empty() && location->cgi_extension == getExtension(req.uri))
     {
         response = handleCGI(req, server, location, resolvePath(server, location, req));
         return ;
@@ -248,7 +277,7 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
             response = buildErrorResponse(403, server, req.keep_alive);
             return ;
         }
-        if (req.content_length > server->client_max_body_size)
+        if (static_cast<size_t>(req.content_length) > server->client_max_body_size)
         {
             response = buildErrorResponse(413, server, req.keep_alive);
             return ;
@@ -351,23 +380,35 @@ void PollManager::run() //infinite loop that asks the OS if anyone is ready, the
         
 		// Timeout checks - kick clients that havent sent anything in 60 sec
 		kickIdleClients(time(NULL), 60); // nc localhost 8080
-        if (ready == -1)
+        if (ready == -1) {
+            if (errno == EINTR)
+                continue; // signal interrupted poll — just retry
             throw std::runtime_error("poll() failed");
+		}
 		// walk through every watched fd, one by one
         for (size_t i = 0; i < _poll_fds.size(); i++)
         {	if (_poll_fds[i].revents == 0) // if nothing happened on this fd, skip it
 			//events is what you ask for, revents(returned events) is what you get back
                 continue; //i++
             int fd = _poll_fds[i].fd;
-            if (_poll_fds[i].revents & POLLIN) //checks if the POLLIN bit is set inside revents
+		 	short revents = _poll_fds[i].revents;
+		 	if (revents & (POLLERR | POLLHUP | POLLNVAL))
+			{
+				if (!isServerFd(fd))
+					closeConnection(fd);
+				continue;
+			}
+            if (revents & POLLIN) //checks if the POLLIN bit is set inside revents
             {   if (isServerFd(fd)) //checks if a fd is our listening sockets
                     handleNewConnections(fd); //if new client connected, accpets them
                 else
                 {	handleClientRead(fd); // if existing client sent data, read it
-                    continue ; } }
+                    continue ; 
+				} 
+			}
 
-            if (_poll_fds[i].revents & POLLOUT) // check if socket is ready to be written to, so we send the pending response
-            {	if (!isServerFd(fd)) // checks if this is a client fd (not a listening one)
+            if (revents & POLLOUT) // check if socket is ready to be written to, so we send the pending response
+            {	if (!isServerFd(fd) && _clients.find(fd) != _clients.end()) // checks if this is a client fd (not a listening one)
                     handleClientWrite(fd); //send a pending response
             }
         }
