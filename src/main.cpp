@@ -4,6 +4,7 @@
 
 int main(int argc, char **argv)
 {
+	signal(SIGPIPE, SIG_IGN);
 	try
 	{
 		std::string path = argc > 1 ? argv[1] : "configs/default.conf";
