@@ -28,6 +28,7 @@ private:
     HttpParser _parser;
     std::string _write_buffer;
     bool _keep_alive;
+	bool _read_closed;
 	time_t _last_activity;
 };
 
