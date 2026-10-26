@@ -6,7 +6,7 @@ NAME = webserv
 
 SRCS = src/main.cpp \
        src/ParserSrc/HttpParser.cpp \
-       src/ParserSrc/HttpRequestLine.cpp \
+       src/ParserSrc/HttpReqLine.cpp \
        src/ParserSrc/HttpHeaders.cpp \
        src/ParserSrc/HttpBody.cpp \
        src/ParserSrc/HttpChunked.cpp \
