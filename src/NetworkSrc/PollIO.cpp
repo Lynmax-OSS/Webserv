@@ -1,5 +1,6 @@
 #include "../../include/Webserv.hpp"
 #include "../../include/NetworkHeader/PollManager.hpp"
+#include "../../include/ParserHeader/ClientConnection.hpp"
 
 // Accept new connections
 void PollManager::handleNewConnections(int server_fd)
