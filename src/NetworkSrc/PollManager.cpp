@@ -372,7 +372,7 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
 void PollManager::run() //infinite loop that asks the OS if anyone is ready, then handles them
 {
     std::cout << "Server running...\n";
-    while (true)
+    while (true) // [{fd:3, events:POLLIN, revents:0?}]
     {	int ready = poll(_poll_fds.data(), _poll_fds.size(), 1000);
 		// poll() sleeps until something happens, or until 1 second passes.
 		// and only wakes up when is triggered when any watched fd has news
@@ -386,6 +386,10 @@ void PollManager::run() //infinite loop that asks the OS if anyone is ready, the
             throw std::runtime_error("poll() failed");
 		}
 		// walk through every watched fd, one by one
+        // 0	                |Skip (nothing happened)
+        // POLLIN on server fd	|handleNewConnections()  - new client
+        // POLLIN on client fd	|handleClientRead()      - data arrived
+        // POLLOUT on client fd	|handleClientWrite()     - can send
         for (size_t i = 0; i < _poll_fds.size(); i++)
         {	if (_poll_fds[i].revents == 0) // if nothing happened on this fd, skip it
 			//events is what you ask for, revents(returned events) is what you get back
