@@ -22,6 +22,9 @@ public:
 
 	void updateActivity();
     bool isTimeout(time_t current_time, int timeout_seconds) const;
+
+    bool isReadClosed() const;
+    void setReadClosed(bool v);
     
 private:
     int _fd;
