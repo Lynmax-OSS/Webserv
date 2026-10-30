@@ -380,7 +380,8 @@ void PollManager::run() //infinite loop that asks the OS if anyone is ready, the
         
 		// Timeout checks - kick clients that havent sent anything in 60 sec
 		kickIdleClients(time(NULL), 60); // nc localhost 8080
-        if (ready == -1) {
+        if (ready == -1)
+		{
             if (errno == EINTR)
                 continue; // signal interrupted poll — just retry
             throw std::runtime_error("poll() failed");
@@ -391,7 +392,8 @@ void PollManager::run() //infinite loop that asks the OS if anyone is ready, the
         // POLLIN on client fd	|handleClientRead()      - data arrived
         // POLLOUT on client fd	|handleClientWrite()     - can send
         for (size_t i = 0; i < _poll_fds.size(); i++)
-        {	if (_poll_fds[i].revents == 0) // if nothing happened on this fd, skip it
+        {	
+			if (_poll_fds[i].revents == 0) // if nothing happened on this fd, skip it
 			//events is what you ask for, revents(returned events) is what you get back
                 continue; //i++
             int fd = _poll_fds[i].fd;
@@ -403,16 +405,19 @@ void PollManager::run() //infinite loop that asks the OS if anyone is ready, the
 				continue;
 			}
             if (revents & POLLIN) //checks if the POLLIN bit is set inside revents
-            {   if (isServerFd(fd)) //checks if a fd is our listening sockets
+            {   
+				if (isServerFd(fd)) //checks if a fd is our listening sockets
                     handleNewConnections(fd); //if new client connected, accpets them
                 else
-                {	handleClientRead(fd); // if existing client sent data, read it
+                {	
+					handleClientRead(fd); // if existing client sent data, read it
                     continue ; 
 				} 
 			}
 
             if (revents & POLLOUT) // check if socket is ready to be written to, so we send the pending response
-            {	if (!isServerFd(fd) && _clients.find(fd) != _clients.end()) // checks if this is a client fd (not a listening one)
+            {	
+				if (!isServerFd(fd) && _clients.find(fd) != _clients.end()) // checks if this is a client fd (not a listening one)
                     handleClientWrite(fd); //send a pending response
             }
         }
