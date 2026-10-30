@@ -8,6 +8,7 @@ void PollManager::handleNewConnections(int server_fd)
     socklen_t   client_len = sizeof(client_addr); //Tell the OS how big the box is
     std::memset(&client_addr, 0, sizeof(client_addr)); //fill the box with zeros - clean it first
     //accept the client - give them a new fd and fill client_addr with client's IP + Port
+    // int flags = fcntl(client_fd, F_GETFL, 0); //get current flags
     int client_fd = accept(server_fd, (sockaddr*)&client_addr, &client_len);
     if (client_fd == -1)
     {
@@ -15,8 +16,8 @@ void PollManager::handleNewConnections(int server_fd)
         return ;
     }
     // Set non-blocking //fcntl = file control - tool to look at or change flags
-    int flags = fcntl(client_fd, F_GETFL, 0); //get current flags
-    fcntl(client_fd, F_SETFL, flags | O_NONBLOCK); //set with new values - keeps existing flags, add nonblocker
+    // int flags = fcntl(client_fd, F_GETFL, 0); //get current flags
+    fcntl(client_fd, F_SETFL, O_NONBLOCK); //set with new values - keeps existing flags, add nonblocker
 
     std::cout << "Client connected on fd " << client_fd << "\n";
     _clients[client_fd] = ClientConnection(client_fd);
@@ -27,11 +28,9 @@ void PollManager::handleNewConnections(int server_fd)
 ssize_t PollManager::readFromClient(int fd)
 {
     char buf[4096]; //make temporary bucket that holds a set amount of bytes || cause one page size on linux is 4096 bytes
-    std::memset(buf, 0, sizeof(buf)); //fill bucket with zeroes to clean it
+    std::memset(buf, 0, sizeof(buf)); //zeroed/clean
 
-    ssize_t bytes = read(fd, buf, sizeof(buf) - 1); //req OS to store up to 4095 bytes from this socket from buf
-    // if (bytes < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) //try again later || nothing to read, but keep the connection open
-    //     return 0; // no data ready.. not an error
+    ssize_t bytes = read(fd, buf, sizeof(buf) - 1); //read up to 4095 bytes
     if (bytes <= 0)//0 = disconnect, -1 = error,
         return bytes; //return to caller
 
@@ -42,6 +41,14 @@ ssize_t PollManager::readFromClient(int fd)
     it->second.getParser().feed(std::string(buf, bytes));
     it->second.updateActivity();
     return bytes;
+    // "GET / HTTP/1.1\r\nHost: localhost:8080\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n"
+    // Offset	Bytes	                                            ASCII
+    // 0	    G E T / H T T P / 1 . 1 \r \n	                    GET / HTTP/1.1\r\n
+    // 16	    H o s t : l o c a l h o s t : 8 0 8 0 \r \n	        Host: localhost:8080\r\n
+    // 38	    U s e r - A g e n t : c u r l / 7 . 8 1 . 0 \r \n	User-Agent: curl/7.81.0\r\n
+    // 62	    A c c e p t : * / * \r \n	                        Accept: */*\r\n
+    // 75	    \r \n	                                            \r\n
+    // 77->4095	\0 (still zeroed)
 }
 
 void PollManager::handleClientRead(int fd)
