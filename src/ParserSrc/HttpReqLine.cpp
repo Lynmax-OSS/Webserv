@@ -2,27 +2,22 @@
 #include <sstream>
 #include <cstdlib>
 
-// GET /hello?name=jo HTTP/1.1\r\n
-// Host: localhost\r\n
-// \r\n
+//decode uri
+std::string HttpParser::_decodeURI(const std::string& uri) {
+    std::string result;
 
-void HttpParser::_processRequestLine() {
-    
-    size_t newline_pos = _buffer.find("\r\n"); //Look for the end of the line (\r\n)
-    if (newline_pos == std::string::npos) {
-        return ;
+    for (size_t i = 0; i < uri.size(); ++i) {
+        if (uri[i] == '%' && i + 2 < uri.size() && isxdigit(uri[i + 1]) && isxdigit(uri[i + 2])) {
+            char hex[3] = {uri[i + 1], uri[i + 2], '\0'};
+            long value = strtol(hex, NULL, 16);
+            result += static_cast<char>(value);
+            i += 2; //Skip the two hex digits
+        } else if (uri[i] == '+') //+ in URL means space
+            result += ' ';
+        else
+            result += uri[i];
     }
-    std::string line = _buffer.substr(0, newline_pos); //GET /hello?name=jo HTTP/1.1\r\n
-    _buffer.erase(0, newline_pos + 2); //+2.. remove \r\n
-
-    //Try to parse it
-    if (!_parseRequestLine(line)) {
-        if (_request.error_code == 0) {
-            _setError(400); //Bad Request
-        }
-        return ;
-    }
-    _state = HEADERS; //move to next state
+    return result;
 }
 
 //parse request line
@@ -60,20 +55,25 @@ bool HttpParser::_parseRequestLine(const std::string& line) {
     return true;
 }
 
-//decode uri
-std::string HttpParser::_decodeURI(const std::string& uri) {
-    std::string result;
+// GET /hello?name=jo HTTP/1.1\r\n
+// Host: localhost\r\n
+// \r\n
 
-    for (size_t i = 0; i < uri.size(); ++i) {
-        if (uri[i] == '%' && i + 2 < uri.size() && isxdigit(uri[i + 1]) && isxdigit(uri[i + 2])) {
-            char hex[3] = {uri[i + 1], uri[i + 2], '\0'};
-            long value = strtol(hex, NULL, 16);
-            result += static_cast<char>(value);
-            i += 2; //Skip the two hex digits
-        } else if (uri[i] == '+') //+ in URL means space
-            result += ' ';
-        else
-            result += uri[i];
+void HttpParser::_processRequestLine() {
+    
+    size_t newline_pos = _buffer.find("\r\n"); //Look for the end of the line (\r\n)
+    if (newline_pos == std::string::npos) {
+        return ;
     }
-    return result;
+    std::string line = _buffer.substr(0, newline_pos); //GET /hello?name=jo HTTP/1.1\r\n
+    _buffer.erase(0, newline_pos + 2); //+2.. remove \r\n
+
+    //Try to parse it
+    if (!_parseRequestLine(line)) {
+        if (_request.error_code == 0) {
+            _setError(400); //Bad Request
+        }
+        return ;
+    }
+    _state = HEADERS; //move to next state
 }
