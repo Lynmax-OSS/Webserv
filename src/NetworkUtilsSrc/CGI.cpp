@@ -6,13 +6,13 @@
 /*   By: yosherau <yosherau@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/24 03:02:39 by yosherau          #+#    #+#             */
-/*   Updated: 2026/11/07 19:17:11 by yosherau         ###   ########.fr       */
+/*   Updated: 2026/11/07 19:27:28 by yosherau         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 # include "../../include/NetworkUtilsHeader/CGI.hpp"
 # include "../../include/NetworkUtilsHeader/ResponseUtils.hpp"
-# include "../../include/ParserHeader/ClientConnection.hpp"
+
 # include <sys/stat.h>
 # include <sys/wait.h>
 # include <unistd.h>

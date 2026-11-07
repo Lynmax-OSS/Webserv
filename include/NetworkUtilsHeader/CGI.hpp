@@ -6,7 +6,7 @@
 /*   By: yosherau <yosherau@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/24 02:52:08 by yosherau          #+#    #+#             */
-/*   Updated: 2026/11/07 17:24:59 by yosherau         ###   ########.fr       */
+/*   Updated: 2026/11/07 19:27:34 by yosherau         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,6 +16,7 @@
 # include "../../include/ParserHeader/HttpRequest.hpp"
 # include "../../include/ConfigHeader/ServerConfig.hpp"
 # include "../../include/ConfigHeader/LocationConfig.hpp"
+# include "../../include/ParserHeader/ClientConnection.hpp"
 
 std::string handleCGI(const HttpRequest &req, const ServerConfig *server, const LocationConfig *location, const std::string &scriptPath, ClientConnection &conn);
 bool	runCGI(std::string cgi_path, std::string script_path, const HttpRequest &req, std::string &output);

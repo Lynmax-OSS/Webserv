@@ -23,8 +23,8 @@ public:
 	void updateActivity();
     bool isTimeout(time_t current_time, int timeout_seconds) const;
 
-    bool ClientConnection::isReadClosed() const;
-    void ClientConnection::setReadClosed(bool v);
+    bool isReadClosed() const;
+    void setReadClosed(bool v);
 
     bool getWaitingForCGI() const;
     void setWaitingForCGI(bool waiting);
