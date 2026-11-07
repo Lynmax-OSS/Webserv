@@ -48,7 +48,7 @@ class PollManager
 		void	kickIdleClients(time_t now, int timeout_sec);
 
 		// Main handler
-		void	handleRequest(const HttpRequest& req, const std::vector<ServerConfig>& configs, std::string& response);
+		void	handleRequest(const HttpRequest& req, const std::vector<ServerConfig>& configs, std::string& response, ClientConnection& conn);
 };
 
 #endif

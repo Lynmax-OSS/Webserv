@@ -90,7 +90,7 @@ bool PollManager::processRequest(int fd)
     else
     {
         std::cout << "✅ Received: " << req.method << " " << req.path << std::endl;
-        handleRequest(req, _configs, conn.getWriteBuffer());
+        handleRequest(req, _configs, conn.getWriteBuffer(), conn);
     }
 
     // // Attempt to send the response immediately
@@ -110,7 +110,7 @@ bool PollManager::processRequest(int fd)
 	return conn.isKeepAlive();
 }
 
-void PollManager::handleRequest(const HttpRequest& req, const std::vector<ServerConfig>& configs, std::string& response)
+void PollManager::handleRequest(const HttpRequest& req, const std::vector<ServerConfig>& configs, std::string& response, ClientConnection &conn)
 {
     struct stat path_stat;
     std::string filePath;
@@ -188,7 +188,7 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
 
     if (location && !location->cgi_extension.empty() && location->cgi_extension == getExtension(req.uri))
     {
-        response = handleCGI(req, server, location, resolvePath(server, location, req));
+        response = handleCGI(req, server, location, resolvePath(server, location, req), conn);
         return ;
     }
     if (req.method == "GET")

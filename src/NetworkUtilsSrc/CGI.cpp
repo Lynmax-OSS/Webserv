@@ -6,12 +6,13 @@
 /*   By: yosherau <yosherau@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/24 03:02:39 by yosherau          #+#    #+#             */
-/*   Updated: 2026/10/20 11:09:20 by yosherau         ###   ########.fr       */
+/*   Updated: 2026/11/07 19:17:11 by yosherau         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 # include "../../include/NetworkUtilsHeader/CGI.hpp"
 # include "../../include/NetworkUtilsHeader/ResponseUtils.hpp"
+# include "../../include/ParserHeader/ClientConnection.hpp"
 # include <sys/stat.h>
 # include <sys/wait.h>
 # include <unistd.h>
@@ -19,8 +20,9 @@
 # include <cstdlib>
 # include <fcntl.h>
 
-std::string handleCGI(const HttpRequest &req, const ServerConfig *server, const LocationConfig *location, const std::string &scriptPath)
+std::string handleCGI(const HttpRequest &req, const ServerConfig *server, const LocationConfig *location, const std::string &scriptPath, ClientConnection &conn)
 {
+	conn.setWaitingForCGI(true);
 	std::cerr << "CGI scriptPath = [" << scriptPath << "]" << std::endl;
 	struct stat st;
 	if (stat(scriptPath.c_str(), &st) != 0 || !S_ISREG(st.st_mode))

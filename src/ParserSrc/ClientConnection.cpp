@@ -2,12 +2,12 @@
 #include <ctime>
 
 ClientConnection::ClientConnection() 
-    : _fd(-1), _keep_alive(true), _read_closed(false)  {
+    : _fd(-1), _keep_alive(true), _read_closed(false), _waitingForCGI(false) {
     updateActivity();
 }
 
 ClientConnection::ClientConnection(int fd) 
-    : _fd(fd), _keep_alive(true), _read_closed(false)  {
+    : _fd(fd), _keep_alive(true), _read_closed(false), _waitingForCGI(false)  {
 	updateActivity(); // Set initial time
 }
 
@@ -40,11 +40,19 @@ bool ClientConnection::isKeepAlive() const {
 void ClientConnection::setKeepAlive(bool keep_alive) {
     _keep_alive = keep_alive;
 }
-
+ 
 bool ClientConnection::isReadClosed() const {
     return _read_closed;
 }
 
 void ClientConnection::setReadClosed(bool v) {
     _read_closed = v;
+}
+
+bool ClientConnection::getWaitingForCGI() const {
+    return _waitingForCGI;
+}
+
+void ClientConnection::setWaitingForCGI(bool waiting) {
+    _waitingForCGI = waiting;
 }
