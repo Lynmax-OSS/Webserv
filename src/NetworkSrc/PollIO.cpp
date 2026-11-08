@@ -17,8 +17,8 @@ void PollManager::handleNewConnections(int server_fd)
         return ;
     }
     // Set non-blocking //fcntl = file control - tool to look at or change flags
-    // int flags = fcntl(client_fd, F_GETFL, 0); //get current flags
-    fcntl(client_fd, F_SETFL, O_NONBLOCK); //set with new values - keeps existing flags, add nonblocker
+    int flags = fcntl(client_fd, F_GETFL, 0); //get current flags
+    fcntl(client_fd, F_SETFL, flags | O_NONBLOCK); //set with new values - keeps existing flags, add nonblocker
 
     std::cout << "Client connected on fd " << client_fd << "\n";
     _clients[client_fd] = ClientConnection(client_fd);
