@@ -20,7 +20,7 @@ void HttpParser::reset(bool keep_buffer) { //clear, maybe keep leftover bytes
     if (!keep_buffer) {
         _buffer.clear();
     }
-    _current_line.clear();
+    // _current_line.clear();
     _request = HttpRequest();
     _chunk_size = 0;
     _chunk_bytes_read = 0;
