@@ -35,11 +35,6 @@ PollManager &PollManager::operator=(const PollManager &other)
     return (*this);
 }
 
-void PollManager::handleClientWrite(int fd)
-{
-    sendResponse(fd);
-}
-
 // Request handling
 
 void PollManager::processRequest(int fd)
@@ -248,7 +243,7 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
             response = buildErrorResponse(403, server, req.keep_alive);
             return ;
         }
-        if (req.content_length > server->client_max_body_size)
+        if (req.content_length >= 0 && static_cast<size_t>(req.content_length) > server->client_max_body_size)
         {
             response = buildErrorResponse(413, server, req.keep_alive);
             return ;
