@@ -6,7 +6,7 @@
 /*   By: yosherau <yosherau@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/24 03:02:39 by yosherau          #+#    #+#             */
-/*   Updated: 2026/11/07 19:27:28 by yosherau         ###   ########.fr       */
+/*   Updated: 2026/11/11 21:59:19 by yosherau         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -22,7 +22,6 @@
 
 std::string handleCGI(const HttpRequest &req, const ServerConfig *server, const LocationConfig *location, const std::string &scriptPath, ClientConnection &conn)
 {
-	conn.setWaitingForCGI(true);
 	std::cerr << "CGI scriptPath = [" << scriptPath << "]" << std::endl;
 	struct stat st;
 	if (stat(scriptPath.c_str(), &st) != 0 || !S_ISREG(st.st_mode))
@@ -33,6 +32,7 @@ std::string handleCGI(const HttpRequest &req, const ServerConfig *server, const 
     if (!runCGI(location->cgi_path, scriptPath, req, output))
 		return (buildErrorResponse(500, server, req.keep_alive));
 	int status;
+	conn.setWaitingForCGI(true);
 	std::string	contentType, body;
 	parseCgiOutput(output, status, contentType, body);
 	std::map<std::string, std::string> headers;

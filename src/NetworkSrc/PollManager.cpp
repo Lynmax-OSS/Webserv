@@ -379,7 +379,7 @@ void PollManager::run() //infinite loop that asks the OS if anyone is ready, the
 		// and will timeout after 1 second if no event on any watched fd
         
 		// Timeout checks - kick clients that havent sent anything in 60 sec
-		kickIdleClients(time(NULL), 60); // nc localhost 8080
+		kickIdleClients(time(NULL), 5); // nc localhost 8080
         if (ready == -1)
 		{
             if (errno == EINTR)
