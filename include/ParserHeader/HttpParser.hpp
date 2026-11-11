@@ -48,7 +48,7 @@ private:
     State _state;
     std::string _buffer;        // Leftover data from partial reads
     HttpRequest _request;       // The request being built
-    std::string _current_line;  // Currently building a line
+    // std::string _current_line;  // Currently building a line
     
     // Chunked encoding variables
     size_t _chunk_size;
