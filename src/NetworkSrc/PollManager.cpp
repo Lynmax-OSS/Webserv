@@ -44,6 +44,8 @@ void PollManager::handleClientWrite(int fd)
         return ;
 
     ClientConnection& conn = it->second;
+    if (conn.getWaitingForCGI())
+        return ;
     if (!conn.getWriteBuffer().empty())
         return ;
     if (conn.isReadClosed())
@@ -107,7 +109,10 @@ bool PollManager::processRequest(int fd)
     //     // If not keep-alive, close connection
     //     closeConnection(fd);
     // }
-	return conn.isKeepAlive();
+    if (conn.getWaitingForCGI())
+        return (true);
+    else
+	    return conn.isKeepAlive();
 }
 
 void PollManager::handleRequest(const HttpRequest& req, const std::vector<ServerConfig>& configs, std::string& response, ClientConnection &conn)
@@ -368,12 +373,29 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
     }
 }
 
+void PollManager::updatePollFds(void)
+{
+    for (std::vector<pollfd>::iterator it = _poll_fds.begin(); it != _poll_fds.end(); ++it)
+    {
+        if (isServerFd(it->fd))
+            continue;
+        std::map<int, ClientConnection>::iterator clientIt = _clients.find(it->fd);
+        if (clientIt == _clients.end())
+            continue;
+        it->events = POLLIN;
+        if (clientIt->second.getWriteBuffer().size() > 0)
+            it->events |= POLLOUT;
+    }
+}
+
 // Main loop
 void PollManager::run() //infinite loop that asks the OS if anyone is ready, then handles them
 {
     std::cout << "Server running...\n";
     while (true) // [{fd:3, events:POLLIN, revents:0?}]
-    {	int ready = poll(_poll_fds.data(), _poll_fds.size(), 1000);
+    {	
+        updatePollFds();
+        int ready = poll(_poll_fds.data(), _poll_fds.size(), 1000);
 		// poll() sleeps until something happens, or until 1 second passes.
 		// and only wakes up when is triggered when any watched fd has news
 		// and will timeout after 1 second if no event on any watched fd

@@ -21,7 +21,8 @@ void PollManager::handleNewConnections(int server_fd)
 
     std::cout << "Client connected on fd " << client_fd << "\n";
     _clients[client_fd] = ClientConnection(client_fd);
-    addFd(client_fd, POLLIN | POLLOUT); //watch this fd for read and write
+    // Changed to only POLLIN
+    addFd(client_fd, POLLIN); //watch this fd for read and write
 }
 
 // Reading from a client

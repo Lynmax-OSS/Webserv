@@ -21,6 +21,7 @@ class PollManager
 		PollManager(const PollManager &other);
 		PollManager &operator=(const PollManager &other);
 		void	run();
+		void	updatePollFds(void);
 
 	private:
 		SocketManager	&_manager;
