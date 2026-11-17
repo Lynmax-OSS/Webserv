@@ -12,7 +12,7 @@ PollManager::PollManager(SocketManager &manager, const std::vector<ServerConfig>
     //   socket[i]     → pointer to one ServerSocket
     //   socket[i]->fd → that socket's OS-assigned fd (e.g. 3, 7, ...)
     const std::vector<ServerSocket*> &socket = manager.getSocket(); //get list of socket
-    for (size_t i = 0; i < socket.size(); i++) 
+    for (size_t i = 0; i < socket.size(); i++)
         addFd(socket[i]->fd, POLLIN); //Watch that socket's fd for readable events
 } //POLLIN - "readable" event flag || wake me on new connections
 
@@ -119,14 +119,14 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
 {
     struct stat path_stat;
     std::string filePath;
-	
+
     const ServerConfig* server = NULL;
     {
         std::string host;
         std::map<std::string, std::string>::const_iterator hostIt = req.headers.find("Host");
         if (hostIt != req.headers.end())
             host = hostIt->second;
-    
+
         int port = 8080;
         size_t colonPos = host.find(':');
         if (colonPos != std::string::npos)
@@ -375,6 +375,13 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
 
 void PollManager::updatePollFds(void)
 {
+    for (std::vector<pollfd>::iterator it = _poll_fds.begin(); it != _poll_fds.end();)
+    {
+        if (it->fd == -1)
+            it = _poll_fds.erase(it);
+        else
+            ++it;
+    }
     for (std::vector<pollfd>::iterator it = _poll_fds.begin(); it != _poll_fds.end(); ++it)
     {
         if (isServerFd(it->fd))
@@ -388,20 +395,70 @@ void PollManager::updatePollFds(void)
     }
 }
 
+void PollManager::handleCGIEvent(int fd, short revent)
+{
+    std::map<int, int>::iterator client = _cgi_pipes.find(fd);
+    if (client == _cgi_pipes.end())
+        return;
+    std::map<int, CGI>::iterator job = _cgi_jobs.find(client->second);
+    if (job == _cgi_jobs.end())
+        return;
+    if (job->second.get_pipe_stdout() == fd)
+    {
+        if ((revent & POLLERR) || (revent & POLLNVAL))
+        {
+            close(fd);
+            _cgi_pipes.erase(fd);
+            job->second.set_pipe_stdout(-1);
+            for (std::vector<struct pollfd>::iterator pfd = _poll_fds.begin(); pfd != _poll_fds.end(); ++pfd)
+            {
+                if (pfd->fd == fd)
+                    pfd->fd = -1;
+            }
+            return ;
+        }
+        if ((revent & POLLIN) || (revent & POLLHUP))
+        {
+            char	buf[4096];
+            ssize_t readBytes = read(fd, buf, sizeof(buf));
+            if (readBytes > 0)
+                job->second.append_output(buf, readBytes);
+            else
+            {
+                std::cerr << "CGI Done, collected" << job->second.get_output().size() << "for client" << client->second << std::endl;
+                close(fd);
+                _cgi_pipes.erase(fd);
+                job->second.set_pipe_stdout(-1);
+                for (std::vector<struct pollfd>::iterator pfd = _poll_fds.begin(); pfd != _poll_fds.end(); ++pfd)
+                {
+                    if (pfd->fd == fd)
+                        pfd->fd = -1;
+                }
+                finishCGI(fd);
+            }
+        }
+    }
+}
+
+void    PollManager::finishCGI(int clientFD)
+{
+    
+}
+
 // Main loop
 void PollManager::run() //infinite loop that asks the OS if anyone is ready, then handles them
 {
     std::cout << "Server running...\n";
     while (true) // [{fd:3, events:POLLIN, revents:0?}]
-    {	
+    {
         updatePollFds();
         int ready = poll(_poll_fds.data(), _poll_fds.size(), 1000);
 		// poll() sleeps until something happens, or until 1 second passes.
 		// and only wakes up when is triggered when any watched fd has news
 		// and will timeout after 1 second if no event on any watched fd
-        
+
 		// Timeout checks - kick clients that havent sent anything in 60 sec
-		kickIdleClients(time(NULL), 5); // nc localhost 8080
+		kickIdleClients(time(NULL), 10); // nc localhost 8080
         if (ready == -1)
 		{
             if (errno == EINTR)
@@ -414,12 +471,18 @@ void PollManager::run() //infinite loop that asks the OS if anyone is ready, the
         // POLLIN on client fd	|handleClientRead()      - data arrived
         // POLLOUT on client fd	|handleClientWrite()     - can send
         for (size_t i = 0; i < _poll_fds.size(); i++)
-        {	
+        {
 			if (_poll_fds[i].revents == 0) // if nothing happened on this fd, skip it
 			//events is what you ask for, revents(returned events) is what you get back
                 continue; //i++
             int fd = _poll_fds[i].fd;
 		 	short revents = _poll_fds[i].revents;
+            std::map<int, int>::iterator it = _cgi_pipes.find(fd);
+            if (it != _cgi_pipes.end())
+            {
+                handleCGIEvent(fd, revents);
+                continue;
+            }
 		 	if (revents & (POLLERR | POLLHUP | POLLNVAL))
 			{
 				if (!isServerFd(fd))
@@ -427,18 +490,18 @@ void PollManager::run() //infinite loop that asks the OS if anyone is ready, the
 				continue;
 			}
             if (revents & POLLIN) //checks if the POLLIN bit is set inside revents
-            {   
+            {
 				if (isServerFd(fd)) //checks if a fd is our listening sockets
                     handleNewConnections(fd); //if new client connected, accpets them
                 else
-                {	
+                {
 					handleClientRead(fd); // if existing client sent data, read it
-                    continue ; 
-				} 
+                    continue ;
+				}
 			}
 
             if (revents & POLLOUT) // check if socket is ready to be written to, so we send the pending response
-            {	
+            {
 				if (!isServerFd(fd) && _clients.find(fd) != _clients.end()) // checks if this is a client fd (not a listening one)
                     handleClientWrite(fd); //send a pending response
             }
