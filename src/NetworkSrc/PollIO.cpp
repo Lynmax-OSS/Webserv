@@ -72,7 +72,7 @@ void PollManager::handleClientRead(int fd)
     if (it == _clients.end())
         return ;
     ClientConnection& conn = it->second;
-    while (conn.getParser().isComplete() || conn.getParser().hasError()) //repeat as long as a complete request is ready
+    while ((conn.getParser().isComplete() || conn.getParser().hasError()) && !conn.getWaitingForCGI()) //repeat as long as a complete request is ready
     {
         if (!processRequest(fd)) //send the parsed request to be handled and replied to
             return ;
@@ -87,7 +87,7 @@ void PollManager::sendResponse(int fd)
     std::map<int, ClientConnection>::iterator it = _clients.find(fd);
     if (it == _clients.end())
         return ;
-    
+
     ClientConnection& conn = it->second;
     if (conn.getWriteBuffer().empty())
         return ;
