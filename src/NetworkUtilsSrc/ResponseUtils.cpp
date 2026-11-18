@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   ResponseUtils.cpp                                  :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: yosherau <yosherau@student.42.fr>          +#+  +:+       +#+        */
+/*   By: yosherau <yosherau@student.42kl.edu.my>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/11 19:04:39 by yosherau          #+#    #+#             */
-/*   Updated: 2026/09/25 11:27:25 by yosherau         ###   ########.fr       */
+/*   Updated: 2026/11/18 08:14:22 by yosherau         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -29,6 +29,7 @@ std::string getReasonPhrase(int status) {
         case 413: return "Payload Too Large";
         case 500: return "Internal Server Error";
         case 501: return "Not Implemented";
+        case 504: return "Gateway Timeout";
         case 505: return "HTTP Version Not Supported";
         default: return "Unknown Status";
     }
@@ -61,7 +62,7 @@ bool    readFileToString(const std::string &path, std::string &out)
     if (!file.is_open()) {
         return false;
     }
-    
+
     std::ostringstream ss;
     ss << file.rdbuf();
     out = ss.str();
@@ -73,11 +74,11 @@ std::string buildResponse(int status, const std::map<std::string, std::string>& 
     std::ostringstream oss;
 
     oss << "HTTP/1.1 " << status << " " << getReasonPhrase(status) << "\r\n";
-    
+
     for (std::map<std::string, std::string>::const_iterator it = extraHeaders.begin(); it != extraHeaders.end(); ++it) {
         oss << it->first << ": " << it->second << "\r\n";
     }
-    
+
     oss << "Content-Length: " << body.size() << "\r\n";
     oss << "Connection: " << (keepAlive ? "keep-alive" : "close") << "\r\n";
     oss << "\r\n";
@@ -106,7 +107,7 @@ std::string buildErrorResponse(int status, const ServerConfig *server, bool keep
         << " " << getReasonPhrase(status) << "</h1></body></html>";
         body = ss.str();
     }
-    
+
     std::map<std::string, std::string> headers;
     headers["Content-Type"] = "text/html";
     return buildResponse(status, headers, body, keepAlive);
@@ -131,7 +132,7 @@ std::string buildAutoIndexPage(const std::string &urlPath, const std::string &di
             fullPath += "/";
         fullPath += name;
         struct stat st;
-        
+
         if (stat(fullPath.c_str(), &st) == 0 && S_ISDIR(st.st_mode))
             name += "/";
         oss << "<a href=\"" << base << name << "\">" << name << "</a>\n";
@@ -158,7 +159,7 @@ std::string resolvePath(const ServerConfig *server, const LocationConfig *locati
 {
     std::string path = server->root;
     std::string locationPath = "";
-    
+
     if (location)
     {
         if (!location->root.empty())
