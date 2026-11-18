@@ -60,6 +60,7 @@ void PollManager::handleClientRead(int fd)
         std::map<int, ClientConnection>::iterator it = _clients.find(fd);
         if (it != _clients.end())
             it->second.setReadClosed(true);
+        closeConnection(fd);
         return ;
     }
     if (bytes < 0)
