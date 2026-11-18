@@ -6,7 +6,7 @@
 /*   By: yosherau <yosherau@student.42kl.edu.my>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/24 02:52:08 by yosherau          #+#    #+#             */
-/*   Updated: 2026/11/16 14:06:07 by yosherau         ###   ########.fr       */
+/*   Updated: 2026/11/18 14:05:51 by yosherau         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,6 +18,8 @@
 # include "../../include/ConfigHeader/LocationConfig.hpp"
 # include "../../include/ParserHeader/ClientConnection.hpp"
 # include <sys/types.h>
+
+# define CGI_TIMEOUT_DURATION 20
 
 class CGI
 {
