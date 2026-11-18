@@ -6,7 +6,7 @@
 /*   By: yosherau <yosherau@student.42kl.edu.my>    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/24 03:02:39 by yosherau          #+#    #+#             */
-/*   Updated: 2026/11/16 16:59:38 by yosherau         ###   ########.fr       */
+/*   Updated: 2026/11/18 14:50:31 by yosherau         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -143,6 +143,8 @@ std::string PollManager::handleCGI(const HttpRequest &req, const ServerConfig *s
 		return buildErrorResponse(404, server, req.keep_alive);
 	if (access(scriptPath.c_str(), R_OK) != 0)
 		return (buildErrorResponse(403, server, req.keep_alive));
+	if (static_cast<size_t>(req.content_length) > server->client_max_body_size)
+		return (buildErrorResponse(413, server, req.keep_alive));
     if (!runCGI(location->cgi_path, scriptPath, req, conn.getFd(), server))
 		return (buildErrorResponse(500, server, req.keep_alive));
 	conn.setWaitingForCGI(true);
@@ -201,15 +203,50 @@ bool	PollManager::runCGI(std::string cgi_path, std::string script_path, const Ht
 	}
 	std::vector<std::string>	env;
 	std::string					contentType;
+	std::ostringstream oss;
+	oss << server->port;
+	std::string	serverPort = oss.str();
 	std::map<std::string, std::string>::const_iterator it = req.headers.find("Content-Type");
 	if (it != req.headers.end())
 		contentType = it->second;
+
+	size_t  slash = script_path.rfind('/');
+	std::string	file;
+	std::string	directory;
+	if (slash != std::string::npos)
+	{
+		directory = script_path.substr(0, slash);
+		file = script_path.substr(slash + 1);
+	}
+	else
+	{
+		directory = ".";
+		file = script_path;
+	}
 	env.push_back("REQUEST_METHOD=" + req.method);
 	env.push_back("QUERY_STRING=" + req.query_string);
 	env.push_back("SCRIPT_NAME=" + req.path);
-	env.push_back("SCRIPT_FILENAME=" + script_path);
+	env.push_back("SCRIPT_FILENAME=" + file);
 	env.push_back("GATEWAY_INTERFACE=CGI/1.1");
 	env.push_back("SERVER_PROTOCOL=" + req.http_version);
+	env.push_back("SERVER_NAME=" + server->server_name);
+	for (std::map<std::string, std::string>::const_iterator headers = req.headers.begin(); headers != req.headers.end(); ++headers)
+	{
+		std::string key = headers->first;
+		for (std::size_t i = 0; i < key.length(); ++i)
+		{
+			if (key[i] == '-')
+				key[i] = '_';
+			else
+				key[i] = static_cast<char>(std::toupper(static_cast<unsigned char>(key[i])));
+		}
+		env.push_back("HTTP_" + key + "=" + headers->second);
+	}
+	env.push_back("SERVER_PORT=" + serverPort);
+	env.push_back("SERVER_SOFTWARE=webserv/1.0");
+	env.push_back("PATH_INFO=" + req.path);
+
+
 	if (!req.body.empty())
 	{
 		std::ostringstream len;
@@ -224,7 +261,7 @@ bool	PollManager::runCGI(std::string cgi_path, std::string script_path, const Ht
 
 	char *argv[3];
 	argv[0] = const_cast<char *>(cgi_path.c_str());
-	argv[1] = const_cast<char *>(script_path.c_str());
+	argv[1] = const_cast<char *>(file.c_str());
 	argv[2] = NULL;
 
 	pid_t	pid = fork();
@@ -250,7 +287,8 @@ bool	PollManager::runCGI(std::string cgi_path, std::string script_path, const Ht
 			if (pfd->fd > 2)
 				close(pfd->fd);
 		}
-
+		if (chdir(directory.c_str()) != 0)
+			_exit(EXIT_FAILURE);
 		execve(cgi_path.c_str(), argv, &env_array[0]);
 		_exit(EXIT_FAILURE);
 	}
