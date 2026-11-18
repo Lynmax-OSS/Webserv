@@ -57,6 +57,8 @@ class PollManager
 		bool	runCGI(std::string cgi_path, std::string script_path, const HttpRequest &req, int client_fd, const ServerConfig *server);
 		void	handleCGIEvent(int fd, short revents);
 		void	finishCGI(int clientFD);
+		void	destroyCGIJob(int clientFD);
+		void	checkCGITimeouts(time_t currentTime);
 };
 
 #endif
