@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   CGI.cpp                                            :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: yosherau <yosherau@student.42kl.edu.my>    +#+  +:+       +#+        */
+/*   By: yosherau <yosherau@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/24 03:02:39 by yosherau          #+#    #+#             */
-/*   Updated: 2026/11/18 14:50:31 by yosherau         ###   ########.fr       */
+/*   Updated: 2026/11/19 20:21:06 by yosherau         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -143,7 +143,7 @@ std::string PollManager::handleCGI(const HttpRequest &req, const ServerConfig *s
 		return buildErrorResponse(404, server, req.keep_alive);
 	if (access(scriptPath.c_str(), R_OK) != 0)
 		return (buildErrorResponse(403, server, req.keep_alive));
-	if (static_cast<size_t>(req.content_length) > server->client_max_body_size)
+	if (req.content_length > 0 && static_cast<size_t>(req.content_length) > server->client_max_body_size)
 		return (buildErrorResponse(413, server, req.keep_alive));
     if (!runCGI(location->cgi_path, scriptPath, req, conn.getFd(), server))
 		return (buildErrorResponse(500, server, req.keep_alive));
