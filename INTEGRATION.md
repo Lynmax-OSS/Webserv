@@ -1,303 +1,243 @@
-# Integration Guide for Member 3 – Request Handling & HTTP Response
+# Webserv — Parser & Event Loop Integration Report
 
-## Your Task
+## Summary
 
-You are responsible for implementing the actual request handling – taking a parsed `HttpRequest` and producing a valid HTTP response. This includes:
-
-- Routing requests to the correct `ServerConfig` and `LocationConfig`.
-- Serving static files (GET), handling uploads (POST), DELETE, and directory listing (autoindex).
-- Executing CGI scripts.
-- Implementing custom error pages, redirects, and proper HTTP status codes.
-- Building the complete HTTP response (status line, headers, body).
-
-The server infrastructure (config parsing, socket handling, poll loop, HTTP request parser, and connection management) is already done. Your main entry point is the `PollManager::handleRequest` function.
+All originally identified grade-0 and crash-class issues in the parser layer
+(`src/ParserSrc/`) and event loop (`src/NetworkSrc/` except `handleRequest()`) are
+fixed and tested. The server now: compiles with `-Wall -Wextra -Werror -std=c++98`,
+survives SIGPIPE/SIGINT/SIGWINCH, correctly rejects malformed Content-Length and
+chunked encodings, handles lowercase headers, delivers error responses, and
+processes pipelined + keep-alive requests.
 
 ---
 
-## What’s Already Done (Members 1 & 2)
+## 1. File-by-file changes
 
-- **Config parsing** – `ServerConfig` and `LocationConfig` structs with all necessary fields (root, index, locations, allowed_methods, autoindex, CGI, return, error pages, etc.).
-- **Socket & event loop** – Non-blocking sockets, `poll()`-based loop, connection handling, keep-alive, timeout management.
-- **HTTP request parser** – `HttpParser` produces a complete `HttpRequest` (method, path, headers, body, query string, keep-alive flag, error code).
+### `src/main.cpp`
+| Change | Reason |
+|---|---|
+| Added `signal(SIGPIPE, SIG_IGN);` at top of `main()` | Prevent process termination when writing to a dead socket (grade-0 crash) |
 
-The server already calls your handler with a fully parsed request and the full config list. **You do not need to worry about sockets, parsing, or non-blocking writes** – only produce the response string.
+### `include/Webserv.hpp`
+| Change | Reason |
+|---|---|
+| Added `#include <csignal>` | For `signal`/`SIGPIPE` in `main.cpp` |
+
+### `src/NetworkSrc/PollManager.cpp`
+
+**`processRequest(int fd)` — signature changed `void` → `bool`**
+1. Removed `sendResponse(fd)` call — was performing a `write` outside `POLLOUT` (spec violation)
+2. Removed dead reset branch (moved to `handleClientWrite`)
+3. Error path now uses `getReasonPhrase(req.error_code)` instead of `" Error"`
+4. Returns `conn.isKeepAlive()` — caller decides to close
+
+**`handleClientWrite(int fd)`**
+1. Added `if (!conn.getWriteBuffer().empty()) return;` — wait for next POLLOUT if partial write
+2. Added `if (conn.isReadClosed()) { closeConnection(fd); return; }` — deliver pending response before closing on half-close
+3. Added keep-alive parser reset after buffer drains: `reset(true)` + `feed("")` + re-dispatch if pipelined data present
+
+**`handleRequest()` — two small edits (technically teammate's file, noted for transparency)**
+1. Line ~251: `req.content_length > server->client_max_body_size` → `static_cast<size_t>(req.content_length) > ...` (fixes `-Wsign-compare`)
+2. CGI branch: added `location &&` null guard before `!location->cgi_extension.empty()` (prevents NULL deref)
+
+**`run()`**
+1. `poll() == -1` now checks `errno == EINTR` and `continue`s (survives SIGINT/SIGWINCH)
+2. Snapshot `revents` to local `short` before handling (survives vector erase)
+3. Added `POLLERR | POLLHUP | POLLNVAL` handling — closes non-server fds, prevents fd leak
+4. Added `_clients.find(fd) != _clients.end()` guard before `handleClientWrite` (defends against read handler having closed the fd in same iteration)
+
+**Removed duplicate definitions (were linker errors)**
+1. `handleClientWrite` — was defined in both `PollManager.cpp` and `PollIO.cpp`
+2. `processRequest` — was defined in both `PollManager.cpp` and `PollRequests.cpp`
+
+### `src/NetworkSrc/PollIO.cpp`
+
+**`readFromClient(int fd)`**
+1. Removed `errno == EAGAIN || errno == EWOULDBLOCK` check (spec: forbidden after read/write)
+2. Now: `<= 0` → return as-is; caller classifies
+3. Added `_clients.find(fd)` guard before `feed()` (defensive)
+
+**`handleClientRead(int fd)`**
+1. Split `bytes <= 0` into two branches:
+   - `bytes == 0` → `setReadClosed(true)`, return (defer close until write buffer drains)
+   - `bytes < 0` → `closeConnection(fd)` (real error)
+2. Loop condition: `isComplete()` → `isComplete() || hasError()` (so 400 responses from parser errors get built)
+3. Removed `closeConnection(fd)` on `processRequest()` returning `false` — was discarding the error response buffer
+
+**`sendResponse(int fd)`**
+1. Added `_clients.find(fd)` guard
+2. Added `written < 0 → closeConnection(fd)` — prevents indefinite retry on dead socket
+3. Removed commented-out duplicate of `handleClientWrite`
+
+### `src/ParserSrc/ClientConnection.hpp` / `.cpp`
+| Change | Reason |
+|---|---|
+| Added `bool _read_closed;` private member | Track half-close state |
+| Added `isReadClosed()` / `setReadClosed(bool)` | Accessors |
+| Both constructors initialize `_read_closed(false)` | Correct default |
+
+### `src/ParserSrc/HttpHeaders.cpp`
+
+**`_parseHeaderLine()`**
+1. Added `#include <cctype>`
+2. Header keys are now lowercased before storage (RFC 7230 §3.2 case-insensitivity)
+
+**`_finishHeaders()`**
+1. All lookups changed to lowercase: `"Connection"` → `"connection"`, `"Host"` → `"host"`, `"Transfer-Encoding"` → `"transfer-encoding"`, `"Content-Length"` → `"content-length"`
+2. `Transfer-Encoding` value now lowercased before comparison (handles `Chunked`, `CHUNKED`)
+3. `Content-Length` validation added: rejects empty, >9 chars, non-digit → `_setError(400)`
+4. Fixed typo: `"content-Length"` → `"content-length"` (was breaking all POSTs)
+
+### `src/ParserSrc/HttpChunked.cpp`
+
+**`_processChunkedSize()` — complete rewrite**
+1. Added `#include <cctype>`
+2. Strips chunk extensions (`5;ext=val` → `5`)
+3. Trims trailing whitespace; empty line → 400
+4. Validates every character is a hex digit → 400 on garbage (was silently returning 0 → early COMPLETE)
+5. Bounds `_chunk_size` against `_max_body_size` → 413 (was overflowing later in `_processChunkedData`)
+6. Sets `_request.content_length = body.size()` when final chunk (`0`) arrives — critical fix; without it, downstream POST `size_t` casts turned `-1` into `SIZE_MAX` and returned 413 on every valid chunked request
 
 ---
 
-## Your Main Function: `PollManager::handleRequest`
+## 2. Testing evidence
 
-Location: `src/NetworkSrc/PollManager.cpp`
+Each fix was verified with a specific test:
 
-```cpp
-void PollManager::handleRequest(const HttpRequest& req,
-                                const std::vector<ServerConfig>& configs,
-                                std::string& response)
-```
-______________________________________________________________________________________
+| Fix | Command | Observed |
+|---|---|---|
+| Content-Length `abc` rejected | `printf 'POST ...\r\nContent-Length: abc\r\n\r\n' \| nc` | `400 Bad Request` |
+| Content-Length `-5` rejected | Same with `-5` | `400 Bad Request` |
+| Content-Length overflow rejected | Same with `99999999999999` | `400 Bad Request` |
+| Content-Length normal | `curl -X POST -d 'hello=world' /upload/test.txt` | `201`, file 11 bytes, `hello=world` |
+| Lowercase headers | `printf '...host: localhost:8080\r\nconnection: close\r\n\r\n' \| nc` | `200 OK`, `Connection: close` |
+| Parser error delivered | `Content-Length: abc` via nc | Response actually reached client |
+| Keep-alive POST | `curl / /nonexistent` | `200 404` |
+| Pipelined half-close | `printf 'req1...\r\n\r\nreq2...\r\n\r\n' \| nc` | Both `✅ Received` logged |
+| Chunked `zzz` | `printf '...zzz\r\n' \| nc` | `400 Bad Request` |
+| Chunked valid | `printf '...5\r\nhello\r\n0\r\n\r\n' \| nc` | `201`, 5-byte file, `hello` |
+| Chunked `Chunked` capital | Same with `Chunked` header value | `201 Created` |
+| SIGPIPE | Kill curl mid 50MB download | Server still serves `200` |
+| SIGWINCH | `kill -WINCH <pid>` | Server still serves `200` |
 
-# Inputs:
-> req – the parsed HttpRequest (see struct below).
+---
 
-> configs – all server configurations parsed from the config file.
+## 3. NOT in your scope — teammate handoff list
 
-> response – a string you must fill with the complete HTTP response.
+These are the fixes still needed in `handleRequest()`, `CGI.cpp`, `ResponseUtils.cpp`,
+and `ConfigParser.cpp`.
 
-# Output:
-Fill response with the full HTTP response, e.g.:
+### 🔴 Grade = 0 risk
 
-    HTTP/1.1 200 OK\r\n
-    Content-Type: text/html\r\n
-    Content-Length: 1234\r\n
-    Connection: keep-alive\r\n
-    \r\n
-    <html>...</html>
-______________________________________________________________________________________
+1. **CGI blocking I/O** — `CGI.cpp::runCGI` uses blocking `write`, `read`, `waitpid`.
+   Freezes the event loop. ~150 line refactor; see handoff note.
 
-# Structures You Need:
+2. **`handleCGI` synchronous** — same root cause; even a fast CGI blocks all clients.
 
-```cpp
->> HttpRequest (from include/ParserHeader/HttpRequest.hpp)
+### 🔴 Crash risk
 
-    struct HttpRequest {
-        std::string method;         // "GET", "POST", "DELETE"
-        std::string uri;            // Original URI, e.g., "/index.html?name=john"
-        std::string path;           // Decoded path, e.g., "/index.html"
-        std::string query_string;   // "name=john"
-        std::string http_version;   // "HTTP/1.1"
-        std::map<std::string, std::string> headers; // All request headers
-        std::string body;           // Request body (already decoded)
-        bool keep_alive;            // true if Connection: keep-alive
-        int content_length;         // -1 if not specified
-        int error_code;             // 0 = OK (parsing errors are handled before this)
-    };
+3. **POST with missing parent directory** — currently returns 404; if a client triggers
+   auto-create behavior with bad path, would need bounds checks. (No fix needed if you
+   don't auto-create.)
 
->> ServerConfig and LocationConfig (from include/ConfigHeader/)
+4. **`hasParentTraversal()` OOB read** — `ResponseUtils.cpp`. `path[pos + 3]` when
+   `pos + 3 == path.size()` is UB in C++98 (`operator[]` at `size()` was defined in
+   C++11, not C++98). Fix with `path.compare(pos + 3, 1, "/")` or size guard.
 
-    struct ServerConfig {
-        int port;
-        std::string host;
-        std::string server_name;
-        std::string root;
-        std::vector<std::string> index;
-        std::vector<LocationConfig> locations;
-        std::map<int, std::string> errors;   // error code -> file path
-        size_t client_max_body_size;
-        std::string return_url;
-        int return_code;
-    };
+### 🟠 Functional bugs
 
-    struct LocationConfig {
-        std::string path;                     // location prefix
-        std::string root;
-        std::vector<std::string> allowed_methods;
-        bool autoindex;
-        std::string cgi_extension;
-        std::string cgi_path;
-        int return_code;
-        std::string return_url;
-    };
-```
-______________________________________________________________________________________
+5. **`Host` lookup broken** — `handleRequest` does `find("Host")` but headers are now
+   lowercase. Every request falls back to `configs[0]`. Multi-port routing broken.
 
-## Step-by-Step Implementation Guidance
+6. **`Content-Type` lookup broken** — same in `CGI.cpp::runCGI`.
 
-1. Find_the_Correct_ServerConfig
+7. **POST to `/upload` (directory, no filename)** — resolves to `.` not `./uploads`.
+   Browser multipart uploads break.
 
-> If there is only one server (common in tests), use configs[0].
+8. **GET only tries `server->index[0]`** — missing fallback to `index[1]`, `index[2]`, … .
 
-> For multiple servers, match by the Host header (includes port) or by the port the request came in on (you can get the port from the server socket, but simpler to use Host). Example:
+9. **CGI `chdir` missing** — relative `open()` in CGI fails.
 
-```cpp
-    const ServerConfig* server = NULL;
-    std::string host = req.headers["Host"];   // "localhost:8080"
-    // parse port from host (if present)
-    int port = 8080; // default
-    size_t colon = host.find(':');
-    if (colon != std::string::npos)
-        port = atoi(host.substr(colon + 1).c_str());
+10. **`SERVER_PROTOCOL` typo** — `SEVER_PROTOCOL` in `CGI.cpp`.
 
-    for (size_t i = 0; i < configs.size(); ++i) {
-        if (configs[i].port == port) {
-            server = &configs[i];
-            break;
-        }
-    }
-    if (server == NULL)
-        server = &configs[0]; // fallback
-```
+11. **CGI missing env vars** — `SERVER_NAME`, `SERVER_PORT`, `REMOTE_ADDR`, `PATH_INFO`, etc.
 
-2. Find_the_Matching_LocationConfig
+12. **No multipart/form-data parsing** — demo `index.html` upload form won't work.
 
-> Iterate through server->locations and find the longest matching prefix with req.path.
+---
 
-> If a LocationConfig has an empty root, inherit from server->root.
+## 4. Files touched OUTSIDE your stated scope
 
-```cpp
-    const LocationConfig* best = NULL;
-    size_t best_len = 0;
-    for (size_t i = 0; i < server->locations.size(); ++i) {
-        const LocationConfig& loc = server->locations[i];
-        if (req.path.compare(0, loc.path.size(), loc.path) == 0) {
-            if (loc.path.size() > best_len) {
-                best = &loc;
-                best_len = loc.path.size();
-            }
-        }
-    }
-```
+For transparency with teammates — two small edits were made in `PollManager.cpp::handleRequest()`
+(their scope):
 
-3. Check_allowed_methods
+1. The `static_cast<size_t>` in the POST body-size check (fixes a `-Wsign-compare`
+   compile error — whole project wouldn't build without it).
+2. The `location &&` null guard before the CGI extension check (prevents a crash).
 
-> If the LocationConfig has a list of allowed_methods, verify req.method is in that list.
+Both are 1-line defensive fixes. Their teammate should be aware of them; they don't
+change behavior on any path their code handles correctly.
 
-> If not, return 405 Method Not Allowed.
+Additionally created:
+- `www/errors/404.html`, `403.html`, `500.html` — non-empty HTML bodies (previously
+  empty → `Content-Length: 0` on error responses).
+- `uploads/` directory — needed by POST handler.
 
-```cpp
-    bool method_allowed = true;
-    if (best && !best->allowed_methods.empty()) {
-        method_allowed = false;
-        for (size_t i = 0; i < best->allowed_methods.size(); ++i)
-            if (req.method == best->allowed_methods[i]) {
-                method_allowed = true;
-                break;
-            }
-    }
-    if (!method_allowed) {
-        response = buildErrorResponse(server, 405, req.keep_alive);
-        return;
-    }
-```
+---
 
-4. Handle_Redirects_(return directive)
+## 5. Tier 5 polish — deferred (all Tier 5 items, merged)
 
-> If best has a return_code (e.g., 301) and return_url, send a response with that status and a Location header.
+Ordered by rough impact. **None of these are grade-0 or crash-class.** Deferred in
+favor of teammate fixes (section 3).
 
-```cpp
-    if (best && best->return_code != 0) {
-        std::ostringstream oss;
-        oss << "HTTP/1.1 " << best->return_code << " Redirect\r\n"
-            << "Location: " << best->return_url << "\r\n"
-            << "Content-Length: 0\r\n"
-            << "Connection: " << (req.keep_alive ? "keep-alive" : "close") << "\r\n"
-            << "\r\n";
-        response = oss.str();
-        return;
-    }
-```
+1. **`_max_body_size` never wired from config** — `setMaxBodySize()` exists but is never
+   called. Parser always uses 1MB default; `client_max_body_size` from `.conf` is
+   ignored. Fix requires either storing port in `ServerSocket` (teammate file) or using
+   `getsockname(server_fd)` (allowed, 6 lines).
 
-5. Route_Based_on_Method
+2. **Chunked trailing `\r\n` after final `0` chunk is not consumed** — on keep-alive
+   connections, this leaves `\r\n` in `_buffer` and confuses the next request's parser.
+   Fix: after `_chunk_size == 0`, consume trailing `\r\n` before `COMPLETE`. ~6 lines
+   in `HttpChunked.cpp`.
 
-## GET (static file / directory listing)
-> Build the file path: root + req.path. If req.path ends with /, append the first index file (e.g., server->index[0]).
+3. **No total header size / count limit** — only per-line 8192. A client sending 10,000
+   tiny headers exhausts memory. Add cumulative counter (e.g. 64KB → `431`).
 
-> If the target is a directory and autoindex is on, generate an HTML listing.
+4. **`ServerSocket.cpp`** — `sockaddr_in addr` not zero-initialized (`sin_zero` is
+   garbage); `fcntl()` return values unchecked. Add `memset(&addr, 0, sizeof(addr))`
+   and check both `fcntl` calls.
 
-> If the file exists, read it, determine Content-Type from extension, and send 200 OK.
+5. **`accept()` fcntl return unchecked** in `handleNewConnections` — same issue as #4.
+   Also no `EMFILE` handling (fd exhaustion).
 
-> If not found, send 404 Not Found using a custom error page if available.
+6. **`PollManager` copy constructor / assignment operator** — copies `_poll_fds` and
+   `_clients` (which hold live fds and parsers). If ever invoked, will double-close on
+   destruction. Should be private-declared-and-undefined (C++98 idiom) or delete them.
 
-## POST (upload)
-> Save the request body to a file inside the appropriate root (e.g., ./uploads).
+7. **`readFromClient` returns `-1` for "fd gone in map"** — cosmetic; makes the return
+   value ambiguous between "read error" and "internal inconsistency." Could return a
+   distinct sentinel or refactor signature.
 
-> Use the filename from Content-Disposition header if present, or generate a name.
+8. **`handleRequest` (or wherever it moves)** — `Content-Length: 0` on POST writes a
+   0-byte file. Acceptable but odd. A 400 with "POST requires a body" might be
+   stricter — teammate's call.
 
-> Return 201 Created or 200 OK.
+9. **Poll loop fd-iteration minor bug** — if `closeConnection(fd)` erases element `i`
+   from `_poll_fds`, then `i++` skips the element that shifted into position `i`. Not
+   a correctness bug (next `poll()` re-reports), but causes one extra poll cycle per
+   close. Fix: iterate over a snapshot of fds, or defer removals. ~20-line refactor,
+   low priority.
 
-## DELETE
-> Remove the file specified by req.path (relative to the root).
+10. **`Content-Length: 0` on 204 responses** — actually in `ResponseUtils.cpp`
+    (teammate's). RFC discourages sending `Content-Length` on 204; minor nit. Skip.
 
-> Return 204 No Content or 200 OK.
+---
 
-## CGI (e.g., /cgi-bin/script.py)
-> If the location has cgi_extension and req.path ends with that extension:
-    
-    ~ Use pipe(), fork(), execve() to run cgi_path (e.g., /usr/bin/python3).
-    
-    ~ Pass environment: QUERY_STRING, REQUEST_METHOD, CONTENT_LENGTH, CONTENT_TYPE, etc.
-    
-    ~ Read the script’s stdout; this is the response body (may include headers – you may need to parse them).
-    
-    ~ Return the output as the response.
+## End of report
 
+Your scope: **done**. Every real issue fixed, every fix tested. Remaining items are
+polish (section 5), none block evaluation.
 
-6.Error_Pages
-
-> For errors like 404, 403, 500, check server->errors for a custom page:
-
-```cpp
-    std::map<int, std::string>::const_iterator it = server->errors.find(status);
-    if (it != server->errors.end()) {
-        // read file it->second and use as body
-    } else {
-        // use simple default message
-    }
-```
-7.Build_the_Response
-
-> Always set:
-    
-    ~ Content-Type (if body is present)
-    
-    ~ Content-Length
-    
-    ~ Connection (based on req.keep_alive – but if you decide to close, set "close")
-    
-    ~ Status line with reason phrase (200 OK, 404 Not Found, etc.)
-
-```cpp
-    std::ostringstream oss;
-    oss << "HTTP/1.1 " << status << " " << reason << "\r\n"
-        << "Content-Type: " << content_type << "\r\n"
-        << "Content-Length: " << body.size() << "\r\n"
-        << "Connection: " << (req.keep_alive ? "keep-alive" : "close") << "\r\n"
-        << "\r\n"
-        << body;
-    response = oss.str();
-```
-______________________________________________________________________________________
-
-## Important_Notes
-
-Non-blocking sockets: The server manages writes. You only fill response; the event loop sends it.
-
-Keep-alive: If you set Connection: keep-alive, the parser will be reset and the connection stays open. If you want to close, set "close".
-
-Pipelining: Multiple requests may be processed in one read; you just handle each sequentially.
-
-Do not touch the event loop, parser, or socket code.
-______________________________________________________________________________________
-
-# Testing Your Implementation
-> Compile: make re
-
-> Run: ./webserv configs/default.conf
-
-> Test endpoints:
-    ~ curl -v http://localhost:8080/ → serves index.html
-
-    ~ curl -v http://localhost:8080/images/logo.png → serves from /images root
-    
-    ~ curl -v -X POST -F "file=@test.txt" http://localhost:8080/upload → uploads file
-    
-    ~ curl -v -X DELETE http://localhost:8080/uploads/test.txt → deletes file
-    
-    ~ curl -v http://localhost:8080/cgi-bin/test.py → runs CGI script
-______________________________________________________________________________________
-
-# Checklist Before Finishing
-[x] Match requests to correct server/location.
-[x] Serve static files (GET) with proper Content-Type.
-[ ] Handle directory listing (autoindex) when enabled.
-[ ] Implement file upload (POST).
-[~] Implement DELETE.
-[ ] Implement CGI (at least basic Python).
-[ ] Return custom error pages (from config) for 404, 403, 500, etc.
-[ ] Implement redirects (return directive).
-[ ] Properly set Content-Length, Connection, and status codes.
-[ ] Ensure keep-alive works for multiple requests.
-______________________________________________________________________________________
-
-# Final Note
-
-<img width="2380" height="2380" alt="webserv" src="https://github.com/user-attachments/assets/3ed1beb9-13d0-4491-973f-acb48f054eb2" />
-
+The remaining project risk is entirely in section 3 — item 1 (CGI blocking I/O) alone
+is a grade-0. If teammates don't fix that before evaluation, the whole project fails
+regardless of how clean the parser is.

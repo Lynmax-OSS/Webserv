@@ -5,22 +5,26 @@
 void PollManager::kickIdleClients(time_t now, int timeout_sec)
 {   for (std::map<int, ClientConnection>::iterator it = _clients.begin();
          it != _clients.end(); )
-    {   if (it->second.isTimeout(now, timeout_sec))
+    {
+        if (it->second.isTimeout(now, timeout_sec) && !(it->second.getWaitingForCGI()))
         {   std::cout << "Timeout on fd " << it->first << "\n";
             int fd = it->first;
             ++it;
-            closeConnection(fd); }
+            closeConnection(fd);
+        }
         else
-            ++it; } }
+            ++it;
+    }
+}
 
 // Poll fd bookkeeping
 void PollManager::addFd(int fd, short events)
 {
-    pollfd pfd;
+    pollfd pfd; // before = []
     pfd.fd = fd;
     pfd.events = events;
     pfd.revents = 0;
-    _poll_fds.push_back(pfd);
+    _poll_fds.push_back(pfd); //after = [{fd:3, events:POLLIN, revents:0}]
 }
 
 void PollManager::removeFd(int fd)
@@ -52,4 +56,5 @@ void PollManager::closeConnection(int fd)
     removeFd(fd);
     close(fd);
     _clients.erase(fd);
+    destroyCGIJob(fd);
 }

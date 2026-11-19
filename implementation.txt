@@ -1,0 +1,8 @@
+Step 1 checklist
+Pass the client (fd or ClientConnection&) through handleRequest into the CGI branch.
+For now, the CGI branch only marks the client as waiting and returns, with no fork yet.
+processRequest respects the flag after handleRequest and doesn’t touch the buffer.
+handleClientWrite returns immediately for a waiting client.
+Wherever POLLOUT gets enabled for a client, skip waiting clients.
+kickIdleClients skips waiting clients (temporary).
+handleClientRead handles input from a waiting client (see below).
