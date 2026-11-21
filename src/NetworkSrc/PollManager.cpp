@@ -95,21 +95,6 @@ bool PollManager::processRequest(int fd)
         std::cout << "✅ Received: " << req.method << " " << req.path << std::endl;
         handleRequest(req, _configs, conn.getWriteBuffer(), conn);
     }
-
-    // // Attempt to send the response immediately
-    // sendResponse(fd);
-
-    // // If keep-alive and all data sent, prepare parser for next request
-    // if (conn.isKeepAlive() && conn.getWriteBuffer().empty())
-    // {
-    //     conn.getParser().reset(true); // keep leftover buffer
-    //     conn.getParser().feed(""); // process any pipelined data
-    // }
-    // else
-    // {
-    //     // If not keep-alive, close connection
-    //     closeConnection(fd);
-    // }
     if (conn.getWaitingForCGI())
         return (true);
     else
