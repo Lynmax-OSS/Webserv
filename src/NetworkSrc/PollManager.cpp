@@ -65,9 +65,6 @@ void PollManager::handleClientWrite(int fd)
 
     if (conn.getParser().isComplete() || conn.getParser().hasError())
         processRequest(fd);
-
-    // if (!it->second.isKeepAlive() && it->second.getWriteBuffer().empty())
-    //     closeConnection(fd);
 }
 
 // Request handling
