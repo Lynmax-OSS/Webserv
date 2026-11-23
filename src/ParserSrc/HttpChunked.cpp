@@ -15,7 +15,7 @@ void HttpParser::_processChunkedSize() {
     if (semi != std::string::npos)
         line.erase(semi);
 
-    // Trim trailing whitespace
+    // trim trailing whitespace
     size_t end = line.find_last_not_of(" \t");
     if (end == std::string::npos) {
         _setError(400);
@@ -23,7 +23,7 @@ void HttpParser::_processChunkedSize() {
     }
     line.erase(end + 1);
 
-    // Every character must be a hex digit
+    //every character must be a hex digit
     for (size_t i = 0; i < line.size(); ++i) {
         if (!std::isxdigit(static_cast<unsigned char>(line[i]))) {
             _setError(400);
@@ -31,10 +31,10 @@ void HttpParser::_processChunkedSize() {
         }
     }
 
-    // Parse the chunk size into hexnum
+    //parse the chunk size into hexnum
     _chunk_size = strtol(line.c_str(), NULL, 16);
 
-    // a chunk can't be larger than the body limit
+    //a chunk can't be larger than the body limit
     if (_chunk_size > _max_body_size) {
         _setError(413);
         return ;
@@ -52,7 +52,7 @@ void HttpParser::_processChunkedSize() {
 }
 
 void HttpParser::_processChunkedData() {
-    // If chunk data is already fully read, we're just waiting for \r\n.
+    // if chunk data is already fully read, we just waiting for \r\n.
     if (_waiting_for_chunk_end) {
         if (_buffer.size() >= 2 && _buffer[0] == '\r' && _buffer[1] == '\n') {
             _buffer.erase(0, 2);
@@ -61,7 +61,7 @@ void HttpParser::_processChunkedData() {
         }
         return ;
     }
-    // How many bytes do we still need for this chunk?
+
     int bytes_needed = _chunk_size - _chunk_bytes_read;
     int bytes_available = _buffer.size();
     int bytes_to_read = bytes_available;
@@ -74,11 +74,11 @@ void HttpParser::_processChunkedData() {
         _setError(413);
         return ;
     }
-    // Read the bytes into the body
+
     _request.body += _buffer.substr(0, bytes_to_read);
     _buffer.erase(0, bytes_to_read);
     _chunk_bytes_read += bytes_to_read;
-    // If the whole chunk has been read, wait for the trailing \r\n next time
+    // if already read the whole chunk, wait for the trailing \r\n next time
     if (_chunk_bytes_read == _chunk_size)
         _waiting_for_chunk_end = true;
 }
