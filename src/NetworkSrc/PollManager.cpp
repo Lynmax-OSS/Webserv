@@ -587,7 +587,7 @@ void    PollManager::checkCGITimeouts(time_t currentTime)
 void PollManager::run() //infinite loop that asks the OS if anyone is ready, then handles them
 {
     std::cout << "Server running...\n";
-    while (true) // [{fd:3, events:POLLIN, revents:0?}]
+    while (true) // [{fd:3, events:POLLIN, revents:0}]
     {
         checkCGITimeouts(time(NULL));
         updatePollFds();
