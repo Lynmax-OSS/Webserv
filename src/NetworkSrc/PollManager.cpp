@@ -76,15 +76,7 @@ bool PollManager::processRequest(int fd)
 
     if (req.error_code != 0)
     {
-        // Build error response
-        std::ostringstream error_stream;
-        error_stream << "HTTP/1.1 " << req.error_code << " "
-					<< getReasonPhrase(req.error_code) << "\r\n"
-                    << "Content-Type: text/html\r\n"
-                    << "Connection: close\r\n"
-                    << "\r\n"
-                    << "<h1>Error " << req.error_code << "</h1>";
-        conn.getWriteBuffer() = error_stream.str();
+        conn.getWriteBuffer() = buildErrorResponse(req.error_code, &_configs[0], false);
         conn.setKeepAlive(false);   // close after error
     }
     else

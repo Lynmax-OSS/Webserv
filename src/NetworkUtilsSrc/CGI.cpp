@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   CGI.cpp                                            :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: yosherau <yosherau@student.42.fr>          +#+  +:+       +#+        */
+/*   By: qrajendr <qrajendr@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/09/24 03:02:39 by yosherau          #+#    #+#             */
-/*   Updated: 2026/11/19 20:21:06 by yosherau         ###   ########.fr       */
+/*   Updated: 2026/11/25 18:07:21 by qrajendr         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -206,7 +206,7 @@ bool	PollManager::runCGI(std::string cgi_path, std::string script_path, const Ht
 	std::ostringstream oss;
 	oss << server->port;
 	std::string	serverPort = oss.str();
-	std::map<std::string, std::string>::const_iterator it = req.headers.find("Content-Type");
+	std::map<std::string, std::string>::const_iterator it = req.headers.find("content-Type");
 	if (it != req.headers.end())
 		contentType = it->second;
 
