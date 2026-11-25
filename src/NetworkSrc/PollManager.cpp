@@ -627,7 +627,7 @@ void PollManager::run() //infinite loop that asks the OS if anyone is ready, the
 		 	if (revents & (POLLERR | POLLHUP | POLLNVAL))
 			{
 				if (!isServerFd(fd))
-					closeConnection(fd);
+					closeConnection(fd); // we're done with this client.. clean up
 				continue;
 			}
             if (revents & POLLIN) //checks if the POLLIN bit is set inside revents
