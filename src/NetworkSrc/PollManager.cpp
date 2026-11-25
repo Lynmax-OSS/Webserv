@@ -38,7 +38,7 @@ PollManager &PollManager::operator=(const PollManager &other)
 
 void PollManager::handleClientWrite(int fd)
 {
-    sendResponse(fd);
+    sendResponse(fd); // send bytes to kernel
 
     std::map<int, ClientConnection>::iterator it = _clients.find(fd);
     if (it == _clients.end())
@@ -60,8 +60,8 @@ void PollManager::handleClientWrite(int fd)
         return ;
     }
 
-    conn.getParser().reset(true);
-    conn.getParser().feed("");
+    conn.getParser().reset(true); // parser is ready for next request
+    conn.getParser().feed(""); //wake up parser to process any pipelined bytes already in _buffer
 
     if (conn.getParser().isComplete() || conn.getParser().hasError())
         processRequest(fd);
