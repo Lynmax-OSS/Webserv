@@ -2,9 +2,12 @@
 #include <sstream>
 #include <cstdlib>
 
-// GET /hello?name=jo HTTP/1.1\r\n
+// POST /hello HTTP/1.1\r\n <<
 // Host: localhost\r\n
+// Content-Length: 11\r\n
+// Content-Type: text/plain\r\n
 // \r\n
+// hello=world
 
 void HttpParser::_processRequestLine() {
     
