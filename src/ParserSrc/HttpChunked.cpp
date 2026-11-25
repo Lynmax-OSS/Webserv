@@ -2,7 +2,15 @@
 #include <cstdlib>
 #include <cctype>
 
-// exp: "5\r\nhello\r\n3\r\nabc\r\n0\r\n\r\n"
+//example: 
+// 1000\r\n
+// [4096 bytes of random binary video data]\r\n
+// 1000\r\n
+// [4096 bytes of random binary video data]\r\n
+// 1000\r\n
+// [4096 bytes of random binary video data]\r\n
+// 0\r\n
+// \r\n
 void HttpParser::_processChunkedSize() {
     size_t newline_pos = _buffer.find("\r\n");
     if (newline_pos == std::string::npos)
@@ -65,11 +73,13 @@ void HttpParser::_processChunkedData() {
     int bytes_needed = _chunk_size - _chunk_bytes_read;
     int bytes_available = _buffer.size();
     int bytes_to_read = bytes_available;
+    // if bytes left to read is smaller than bytes that can be read
     if (bytes_needed < bytes_available)
         bytes_to_read = bytes_needed;
-
+    //if nothing to read, exit function
     if (bytes_to_read == 0)
         return ;
+    // + with bytes_to_read to prevent overflow
     if (_request.body.size() + bytes_to_read > _max_body_size) {
         _setError(413);
         return ;
