@@ -85,7 +85,7 @@ void PollManager::handleClientRead(int fd)
 
 void PollManager::sendResponse(int fd)
 {
-    std::map<int, ClientConnection>::iterator it = _clients.find(fd);
+    std::map<int, ClientConnection>::iterator it = _clients.find(fd); // look up the client
     if (it == _clients.end())
         return ;
 
@@ -93,8 +93,7 @@ void PollManager::sendResponse(int fd)
     if (conn.getWriteBuffer().empty())
         return ;
 
-    ssize_t written = write(fd, conn.getWriteBuffer().c_str(),
-                            conn.getWriteBuffer().size());
+    ssize_t written = write(fd, conn.getWriteBuffer().c_str(), conn.getWriteBuffer().size()); //moves bytes from _write_buffer into the kernel send buffer
     if (written < 0)
     {
         closeConnection(fd);
