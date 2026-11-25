@@ -106,10 +106,9 @@ void PollManager::handleRequest(const HttpRequest& req, const std::vector<Server
     const ServerConfig* server = NULL;
     {
         std::string host;
-        std::map<std::string, std::string>::const_iterator hostIt = req.headers.find("Host");
+        std::map<std::string, std::string>::const_iterator hostIt = req.headers.find("host");
         if (hostIt != req.headers.end())
             host = hostIt->second;
-
         int port = 8080;
         size_t colonPos = host.find(':');
         if (colonPos != std::string::npos)
