@@ -2,28 +2,28 @@
 #include "../../include/NetworkHeader/PollManager.hpp"
 #include "../../include/NetworkUtilsHeader/ResponseUtils.hpp"
 #include "../../include/NetworkUtilsHeader/CGI.hpp"
-# include <sys/wait.h>
-# include <dirent.h>
-# include <algorithm>
+#include <sys/wait.h>
+#include <dirent.h>
+#include <algorithm>
 
 PollManager::PollManager(SocketManager &manager, const std::vector<ServerConfig> &configs)
     : _manager(manager), _configs(configs)
-{   // Walk the vector, not fd numbers.
+{ // Walk the vector, not fd numbers.
     //   i     		   → position in the vector
     //   socket[i]     → pointer to one ServerSocket
     //   socket[i]->fd → that socket's OS-assigned fd (e.g. 3, 7, ...)
-    const std::vector<ServerSocket*> &socket = manager.getSocket(); //get list of socket
+    const std::vector<ServerSocket *> &socket = manager.getSocket(); // get list of socket
     for (size_t i = 0; i < socket.size(); i++)
-        addFd(socket[i]->fd, POLLIN); //Watch that socket's fd for readable events
-} //POLLIN - "readable" event flag || wake me on new connections
-
+        addFd(socket[i]->fd, POLLIN); // Watch that socket's fd for readable events
+} // POLLIN - "readable" event flag || wake me on new connections
 
 PollManager::~PollManager() {}
 
 PollManager::PollManager(const PollManager &other)
     : _manager(other._manager), _poll_fds(other._poll_fds),
       _clients(other._clients), _configs(other._configs)
-{}
+{
+}
 
 PollManager &PollManager::operator=(const PollManager &other)
 {
@@ -42,26 +42,26 @@ void PollManager::handleClientWrite(int fd)
 
     std::map<int, ClientConnection>::iterator it = _clients.find(fd);
     if (it == _clients.end())
-        return ;
+        return;
 
-    ClientConnection& conn = it->second;
+    ClientConnection &conn = it->second;
     if (conn.getWaitingForCGI())
-        return ;
+        return;
     if (!conn.getWriteBuffer().empty())
-        return ;
+        return;
     if (conn.isReadClosed())
     {
         closeConnection(fd);
-        return ;
+        return;
     }
     if (!conn.isKeepAlive())
     {
         closeConnection(fd);
-        return ;
+        return;
     }
 
     conn.getParser().reset(true); // parser is ready for next request
-    conn.getParser().feed(""); //wake up parser to process any pipelined bytes already in _buffer
+    conn.getParser().feed("");    // wake up parser to process any pipelined bytes already in _buffer
     applyBodyLimit(conn);
 
     if (conn.getParser().isComplete() || conn.getParser().hasError())
@@ -72,14 +72,14 @@ void PollManager::handleClientWrite(int fd)
 
 bool PollManager::processRequest(int fd)
 {
-    ClientConnection& conn = _clients[fd];
-    const HttpRequest& req = conn.getParser().getRequest();
+    ClientConnection &conn = _clients[fd];
+    const HttpRequest &req = conn.getParser().getRequest();
     std::cout << conn.getParser()._max_body_size << std::endl;
 
     if (req.error_code != 0)
     {
         conn.getWriteBuffer() = buildErrorResponse(req.error_code, selectServer(req), false);
-        conn.setKeepAlive(false);   // close after error
+        conn.setKeepAlive(false); // close after error
     }
     else
     {
@@ -89,7 +89,7 @@ bool PollManager::processRequest(int fd)
     if (conn.getWaitingForCGI())
         return (true);
     else
-	    return conn.isKeepAlive();
+        return conn.isKeepAlive();
 }
 
 const ServerConfig *PollManager::selectServer(const HttpRequest &req) const
@@ -128,12 +128,12 @@ void PollManager::applyBodyLimit(ClientConnection &conn)
     parser.feed("");
 }
 
-void PollManager::handleRequest(const HttpRequest& req, std::string& response, ClientConnection &conn)
+void PollManager::handleRequest(const HttpRequest &req, std::string &response, ClientConnection &conn)
 {
     struct stat path_stat;
     std::string filePath;
 
-    const ServerConfig* server = selectServer(req);
+    const ServerConfig *server = selectServer(req);
     if (server == NULL)
     {
         response = buildErrorResponse(500, NULL, false);
@@ -142,16 +142,15 @@ void PollManager::handleRequest(const HttpRequest& req, std::string& response, C
     if (hasParentTraversal(req.path))
     {
         response = buildErrorResponse(403, server, req.keep_alive);
-        return ;
+        return;
     }
-    const LocationConfig* location = NULL;
+    const LocationConfig *location = NULL;
     {
         size_t longestMatch = 0;
         for (size_t i = 0; i < server->locations.size(); ++i)
         {
-            const LocationConfig& loc = server->locations[i];
-            if (req.path.compare(0, loc.path.size(), loc.path) == 0
-                && loc.path.size() > longestMatch)
+            const LocationConfig &loc = server->locations[i];
+            if (req.path.compare(0, loc.path.size(), loc.path) == 0 && loc.path.size() > longestMatch)
             {
                 location = &loc;
                 longestMatch = loc.path.size();
@@ -186,7 +185,7 @@ void PollManager::handleRequest(const HttpRequest& req, std::string& response, C
     if (location && !location->cgi_extension.empty() && location->cgi_extension == getExtension(req.uri))
     {
         response = handleCGI(req, server, location, resolvePath(server, location, req), conn);
-        return ;
+        return;
     }
     if (req.method == "GET")
     {
@@ -195,7 +194,7 @@ void PollManager::handleRequest(const HttpRequest& req, std::string& response, C
         if (stat(path.c_str(), &path_stat) == -1)
         {
             response = buildErrorResponse(404, server, req.keep_alive);
-            return ;
+            return;
         }
         if (S_ISREG(path_stat.st_mode))
             filePath = path;
@@ -214,13 +213,13 @@ void PollManager::handleRequest(const HttpRequest& req, std::string& response, C
                 if (!location || !location->autoindex)
                 {
                     response = buildErrorResponse(404, server, req.keep_alive);
-                    return ;
+                    return;
                 }
                 DIR *dir = opendir(directory.c_str());
                 if (dir == NULL)
                 {
                     response = buildErrorResponse(403, server, req.keep_alive);
-                    return ;
+                    return;
                 }
                 struct dirent *entry;
 
@@ -242,13 +241,13 @@ void PollManager::handleRequest(const HttpRequest& req, std::string& response, C
         else
         {
             response = buildErrorResponse(403, server, req.keep_alive);
-            return ;
+            return;
         }
         std::string body;
         if (!readFileToString(path, body))
         {
             response = buildErrorResponse(500, server, req.keep_alive);
-            return ;
+            return;
         }
         std::map<std::string, std::string> headers;
         headers["Content-Type"] = getMimeType(filePath);
@@ -267,41 +266,41 @@ void PollManager::handleRequest(const HttpRequest& req, std::string& response, C
         if (fullPath[fullPath.length() - 1] == '/')
         {
             response = buildErrorResponse(400, server, req.keep_alive);
-            return ;
+            return;
         }
         if (hasParentTraversal(req.path))
         {
             response = buildErrorResponse(403, server, req.keep_alive);
-            return ;
+            return;
         }
         if (req.content_length >= 0 && static_cast<size_t>(req.content_length) > server->client_max_body_size)
         {
             response = buildErrorResponse(413, server, req.keep_alive);
-            return ;
+            return;
         }
-        size_t  slash = fullPath.rfind('/');
+        size_t slash = fullPath.rfind('/');
         std::string parentDir = fullPath.substr(0, slash);
         struct stat dirStat;
         if (stat(parentDir.c_str(), &dirStat) == -1)
         {
             response = buildErrorResponse(404, server, req.keep_alive);
-            return ;
+            return;
         }
         if (!S_ISDIR(dirStat.st_mode))
         {
             response = buildErrorResponse(404, server, req.keep_alive);
-            return ;
+            return;
         }
         if (access(parentDir.c_str(), W_OK) == -1)
         {
             response = buildErrorResponse(403, server, req.keep_alive);
-            return ;
+            return;
         }
         struct stat fileStat;
         if (stat(fullPath.c_str(), &fileStat) == 0 && S_ISDIR(fileStat.st_mode))
         {
             response = buildErrorResponse(400, server, req.keep_alive);
-            return ;
+            return;
         }
         fullPath = getUniqueFileName(fullPath);
         if (fullPath.empty())
@@ -309,7 +308,7 @@ void PollManager::handleRequest(const HttpRequest& req, std::string& response, C
             response = buildErrorResponse(500, server, req.keep_alive);
             return;
         }
-        std::ofstream   outFile(fullPath.c_str(), std::ios::binary);
+        std::ofstream outFile(fullPath.c_str(), std::ios::binary);
         if (!outFile.is_open())
         {
             response = buildErrorResponse(500, server, req.keep_alive);
@@ -320,7 +319,7 @@ void PollManager::handleRequest(const HttpRequest& req, std::string& response, C
         if (outFile.fail())
         {
             response = buildErrorResponse(500, server, req.keep_alive);
-            return ;
+            return;
         }
         std::string savedName = fullPath.substr(fullPath.rfind('/') + 1);
         std::map<std::string, std::string> headers;
@@ -335,29 +334,29 @@ void PollManager::handleRequest(const HttpRequest& req, std::string& response, C
         if (hasParentTraversal(req.path))
         {
             response = buildErrorResponse(403, server, req.keep_alive);
-            return ;
+            return;
         }
         if (stat(path.c_str(), &path_stat) == -1)
         {
             response = buildErrorResponse(404, server, req.keep_alive);
-            return ;
+            return;
         }
         if (!S_ISREG(path_stat.st_mode))
         {
             response = buildErrorResponse(403, server, req.keep_alive);
-            return ;
+            return;
         }
-        size_t  slashIndex = path.find_last_of('/');
+        size_t slashIndex = path.find_last_of('/');
         std::string dir = (slashIndex == std::string::npos) ? "." : path.substr(0, slashIndex);
         if (access(dir.c_str(), W_OK) == -1)
         {
             response = buildErrorResponse(403, server, req.keep_alive);
-            return ;
+            return;
         }
         if (std::remove(path.c_str()) != 0)
         {
             response = buildErrorResponse(500, server, req.keep_alive);
-            return ;
+            return;
         }
         std::map<std::string, std::string> headers;
         response = buildResponse(204, headers, "", req.keep_alive);
@@ -418,11 +417,11 @@ void PollManager::handleCGIEvent(int fd, short revent)
                     pfd->fd = -1;
             }
             finishCGI(clientFD);
-            return ;
+            return;
         }
         if ((revent & POLLIN) || (revent & POLLHUP))
         {
-            char	buf[4096];
+            char buf[4096];
             ssize_t readBytes = read(fd, buf, sizeof(buf));
             if (readBytes > 0)
                 job->second.append_output(buf, readBytes);
@@ -457,8 +456,8 @@ void PollManager::handleCGIEvent(int fd, short revent)
         else if ((revent & POLLOUT))
         {
             const std::string &body = job->second.get_body();
-            size_t      body_written = job->second.get_body_written();
-            ssize_t     written = write(fd, body.c_str() + body_written, body.size() - body_written);
+            size_t body_written = job->second.get_body_written();
+            ssize_t written = write(fd, body.c_str() + body_written, body.size() - body_written);
             if (written > 0)
                 job->second.set_body_written(body_written + static_cast<size_t>(written));
             if (written <= 0 || job->second.get_body_written() == job->second.get_body().size())
@@ -476,7 +475,7 @@ void PollManager::handleCGIEvent(int fd, short revent)
     }
 }
 
-void    PollManager::finishCGI(int clientFD)
+void PollManager::finishCGI(int clientFD)
 {
     int status;
     int http_return_code;
@@ -486,7 +485,7 @@ void    PollManager::finishCGI(int clientFD)
     std::string response;
     std::map<int, CGI>::iterator job = _cgi_jobs.find(clientFD);
     if (job == _cgi_jobs.end())
-        return ;
+        return;
     pid_t pid = job->second.get_child_pid();
     pid_t child_status = waitpid(pid, &status, WNOHANG);
     if (child_status == 0)
@@ -531,11 +530,11 @@ void    PollManager::finishCGI(int clientFD)
     destroyCGIJob(clientFD);
 }
 
-void    PollManager::destroyCGIJob(int clientFD)
+void PollManager::destroyCGIJob(int clientFD)
 {
     std::map<int, CGI>::iterator job = _cgi_jobs.find(clientFD);
     if (job == _cgi_jobs.end())
-        return ;
+        return;
     int status;
     pid_t pid = job->second.get_child_pid();
     int pipe_stdin = job->second.get_pipe_stdin();
@@ -569,7 +568,7 @@ void    PollManager::destroyCGIJob(int clientFD)
     _cgi_jobs.erase(job);
 }
 
-void    PollManager::checkCGITimeouts(time_t currentTime)
+void PollManager::checkCGITimeouts(time_t currentTime)
 {
     std::vector<int> CGITimeouts;
     for (std::map<int, CGI>::iterator it = _cgi_jobs.begin(); it != _cgi_jobs.end(); ++it)
@@ -593,7 +592,7 @@ void    PollManager::checkCGITimeouts(time_t currentTime)
 }
 
 // Main loop
-void PollManager::run() //infinite loop that asks the OS if anyone is ready, then handles them
+void PollManager::run() // infinite loop that asks the OS if anyone is ready, then handles them
 {
     std::cout << "Server running...\n";
     while (true) // [{fd:3, events:POLLIN, revents:0}]
@@ -601,19 +600,19 @@ void PollManager::run() //infinite loop that asks the OS if anyone is ready, the
         checkCGITimeouts(time(NULL));
         updatePollFds();
         int ready = poll(_poll_fds.data(), _poll_fds.size(), 1000);
-		// poll() sleeps until something happens, or until 1 second passes.
-		// and only wakes up when is triggered when any watched fd has news
-		// and will timeout after 1 second if no event on any watched fd
+        // poll() sleeps until something happens, or until 1 second passes.
+        // and only wakes up when is triggered when any watched fd has news
+        // and will timeout after 1 second if no event on any watched fd
 
-		// Timeout checks - kick clients that havent sent anything in 60 sec
-		kickIdleClients(time(NULL), 60);
+        // Timeout checks - kick clients that havent sent anything in 60 sec
+        kickIdleClients(time(NULL), 60);
         if (ready == -1)
-		{
+        {
             if (errno == EINTR)
                 continue; // signal interrupted poll — just retry
             throw std::runtime_error("poll() failed");
-		}
-		// walk through every watched fd, one by one
+        }
+        // walk through every watched fd, one by one
         // 0	                |Skip (nothing happened)
         // POLLIN on server fd	|handleNewConnections()  - new client
         // POLLIN on client fd	|handleClientRead()      - data arrived
@@ -622,38 +621,38 @@ void PollManager::run() //infinite loop that asks the OS if anyone is ready, the
         {
             if (_poll_fds[i].fd < 0)
                 continue;
-			if (_poll_fds[i].revents == 0) // if nothing happened on this fd, skip it
-			//events is what you ask for, revents(returned events) is what you get back
-                continue; //i++
+            if (_poll_fds[i].revents == 0) // if nothing happened on this fd, skip it
+                                           // events is what you ask for, revents(returned events) is what you get back
+                continue;                  // i++
             int fd = _poll_fds[i].fd;
-		 	short revents = _poll_fds[i].revents;
+            short revents = _poll_fds[i].revents;
             std::map<int, int>::iterator it = _cgi_pipes.find(fd);
             if (it != _cgi_pipes.end())
             {
                 handleCGIEvent(fd, revents);
                 continue;
             }
-		 	if (revents & (POLLERR | POLLHUP | POLLNVAL))
-			{
-				if (!isServerFd(fd))
-					closeConnection(fd); // we're done with this client.. clean up
-				continue;
-			}
-            if (revents & POLLIN) //checks if the POLLIN bit is set inside revents
+            if (revents & (POLLERR | POLLHUP | POLLNVAL))
             {
-				if (isServerFd(fd)) //checks if a fd is our listening sockets
-                    handleNewConnections(fd); //if new client connected, accpets them
+                if (!isServerFd(fd))
+                    closeConnection(fd); // we're done with this client.. clean up
+                continue;
+            }
+            if (revents & POLLIN) // checks if the POLLIN bit is set inside revents
+            {
+                if (isServerFd(fd))           // checks if a fd is our listening sockets
+                    handleNewConnections(fd); // if new client connected, accpets them
                 else
                 {
-					handleClientRead(fd); // if existing client sent data, read it
-                    continue ;
-				}
-			}
+                    handleClientRead(fd); // if existing client sent data, read it
+                    continue;
+                }
+            }
 
             if (revents & POLLOUT) // check if socket is ready to be written to, so we send the pending response
             {
-				if (!isServerFd(fd) && _clients.find(fd) != _clients.end()) // checks if this is a client fd (not a listening one)
-                    handleClientWrite(fd); //send a pending response
+                if (!isServerFd(fd) && _clients.find(fd) != _clients.end()) // checks if this is a client fd (not a listening one)
+                    handleClientWrite(fd);                                  // send a pending response
             }
         }
     }

@@ -3,37 +3,37 @@
 
 // Accept new connections
 void PollManager::handleNewConnections(int server_fd)
-{   //prepare a place to store client info
-    sockaddr_in client_addr; //make empty box to hold client's add(IP + port) .. OS will fill it in
-    socklen_t   client_len = sizeof(client_addr); //Tell the OS how big the box is
-    std::memset(&client_addr, 0, sizeof(client_addr)); //fill the box with zeros - clean it first
-    //accept the client - give them a new fd and fill client_addr with client's IP + Port
-    // int flags = fcntl(client_fd, F_GETFL, 0); //get current flags
-    int client_fd = accept(server_fd, (sockaddr*)&client_addr, &client_len);
+{                                                      // prepare a place to store client info
+    sockaddr_in client_addr;                           // make empty box to hold client's add(IP + port) .. OS will fill it in
+    socklen_t client_len = sizeof(client_addr);        // Tell the OS how big the box is
+    std::memset(&client_addr, 0, sizeof(client_addr)); // fill the box with zeros - clean it first
+    // accept the client - give them a new fd and fill client_addr with client's IP + Port
+    //  int flags = fcntl(client_fd, F_GETFL, 0); //get current flags
+    int client_fd = accept(server_fd, (sockaddr *)&client_addr, &client_len);
     if (client_fd == -1)
     {
         std::cerr << "accept() failed: " << strerror(errno) << "\n";
-        return ;
+        return;
     }
     // Set non-blocking //fcntl = file control - tool to look at or change flags
     // int flags = fcntl(client_fd, F_GETFL, 0); //get current flags
-    fcntl(client_fd, F_SETFL, O_NONBLOCK); //set with new values - keeps existing flags, add nonblocker
+    fcntl(client_fd, F_SETFL, O_NONBLOCK); // set with new values - keeps existing flags, add nonblocker
 
     std::cout << "Client connected on fd " << client_fd << "\n";
     _clients[client_fd] = ClientConnection(client_fd);
     // Changed to only POLLIN
-    addFd(client_fd, POLLIN); //watch this fd for read and write
+    addFd(client_fd, POLLIN); // watch this fd for read and write
 }
 
 // Reading from a client
 ssize_t PollManager::readFromClient(int fd)
 {
-    char buf[4096]; //make temporary bucket that holds a set amount of bytes || cause one page size on linux is 4096 bytes
-    std::memset(buf, 0, sizeof(buf)); //zeroed/clean
+    char buf[4096];                   // make temporary bucket that holds a set amount of bytes || cause one page size on linux is 4096 bytes
+    std::memset(buf, 0, sizeof(buf)); // zeroed/clean
 
-    ssize_t bytes = read(fd, buf, sizeof(buf) - 1); //read up to 4095 bytes
-    if (bytes <= 0)//0 = disconnect, -1 = error,
-        return bytes; //return to caller
+    ssize_t bytes = read(fd, buf, sizeof(buf) - 1); // read up to 4095 bytes
+    if (bytes <= 0)                                 // 0 = disconnect, -1 = error,
+        return bytes;                               // return to caller
 
     std::map<int, ClientConnection>::iterator it = _clients.find(fd);
     if (it == _clients.end())
@@ -55,29 +55,29 @@ ssize_t PollManager::readFromClient(int fd)
 
 void PollManager::handleClientRead(int fd)
 {
-    ssize_t bytes = readFromClient(fd); //read the bytes
+    ssize_t bytes = readFromClient(fd); // read the bytes
     if (bytes == 0)
     {
         std::map<int, ClientConnection>::iterator it = _clients.find(fd);
         if (it != _clients.end())
             it->second.setReadClosed(true);
         closeConnection(fd);
-        return ;
+        return;
     }
     if (bytes < 0)
     {
         std::cerr << "read error on fd " << fd << "\n";
         closeConnection(fd);
-        return ;
+        return;
     }
     std::map<int, ClientConnection>::iterator it = _clients.find(fd);
     if (it == _clients.end())
-        return ;
-    ClientConnection& conn = it->second;
-    while ((conn.getParser().isComplete() || conn.getParser().hasError()) && !conn.getWaitingForCGI()) //repeat as long as a complete request is ready
+        return;
+    ClientConnection &conn = it->second;
+    while ((conn.getParser().isComplete() || conn.getParser().hasError()) && !conn.getWaitingForCGI()) // repeat as long as a complete request is ready
     {
-        if (!processRequest(fd)) //send the parsed request to be handled and replied to
-            return ;
+        if (!processRequest(fd)) // send the parsed request to be handled and replied to
+            return;
         // stop looping if connection isnt keep-alive or there's still response data not sent yet
         if (!conn.isKeepAlive() || !conn.getWriteBuffer().empty())
             break;
@@ -88,17 +88,17 @@ void PollManager::sendResponse(int fd)
 {
     std::map<int, ClientConnection>::iterator it = _clients.find(fd); // look up the client
     if (it == _clients.end())
-        return ;
+        return;
 
-    ClientConnection& conn = it->second;
+    ClientConnection &conn = it->second;
     if (conn.getWriteBuffer().empty())
-        return ;
+        return;
 
-    ssize_t written = write(fd, conn.getWriteBuffer().c_str(), conn.getWriteBuffer().size()); //moves bytes from _write_buffer into the kernel send buffer
+    ssize_t written = write(fd, conn.getWriteBuffer().c_str(), conn.getWriteBuffer().size()); // moves bytes from _write_buffer into the kernel send buffer
     if (written < 0)
     {
         closeConnection(fd);
-        return ;
+        return;
     }
     if (written > 0)
         conn.getWriteBuffer().erase(0, written);
