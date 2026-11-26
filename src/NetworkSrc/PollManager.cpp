@@ -62,6 +62,7 @@ void PollManager::handleClientWrite(int fd)
 
     conn.getParser().reset(true); // parser is ready for next request
     conn.getParser().feed(""); //wake up parser to process any pipelined bytes already in _buffer
+    applyBodyLimit(conn);
 
     if (conn.getParser().isComplete() || conn.getParser().hasError())
         processRequest(fd);
@@ -73,16 +74,17 @@ bool PollManager::processRequest(int fd)
 {
     ClientConnection& conn = _clients[fd];
     const HttpRequest& req = conn.getParser().getRequest();
+    std::cout << conn.getParser()._max_body_size << std::endl;
 
     if (req.error_code != 0)
     {
-        conn.getWriteBuffer() = buildErrorResponse(req.error_code, &_configs[0], false);
+        conn.getWriteBuffer() = buildErrorResponse(req.error_code, selectServer(req), false);
         conn.setKeepAlive(false);   // close after error
     }
     else
     {
         std::cout << "✅ Received: " << req.method << " " << req.path << std::endl;
-        handleRequest(req, _configs, conn.getWriteBuffer(), conn);
+        handleRequest(req, conn.getWriteBuffer(), conn);
     }
     if (conn.getWaitingForCGI())
         return (true);
@@ -90,32 +92,48 @@ bool PollManager::processRequest(int fd)
 	    return conn.isKeepAlive();
 }
 
-void PollManager::handleRequest(const HttpRequest& req, const std::vector<ServerConfig>& configs, std::string& response, ClientConnection &conn)
+const ServerConfig *PollManager::selectServer(const HttpRequest &req) const
+{
+    std::string host;
+    std::map<std::string, std::string>::const_iterator hostIt = req.headers.find("host");
+    if (hostIt != req.headers.end())
+        host = hostIt->second;
+    int port = _configs.empty() ? 8080 : _configs[0].port;
+    size_t colonPos = host.find(':');
+    if (colonPos != std::string::npos)
+        port = std::atoi(host.substr(colonPos + 1).c_str());
+    std::string hostname = host.substr(0, colonPos);
+    const ServerConfig *portMatch = NULL;
+    for (size_t i = 0; i < _configs.size(); ++i)
+    {
+        if (_configs[i].port != port)
+            continue;
+        if (portMatch == NULL)
+            portMatch = &_configs[i];
+        if (!hostname.empty() && _configs[i].server_name == hostname)
+            return &_configs[i];
+    }
+    if (portMatch != NULL)
+        return portMatch;
+    return _configs.empty() ? NULL : &_configs[0];
+}
+
+void PollManager::applyBodyLimit(ClientConnection &conn)
+{
+    HttpParser &parser = conn.getParser();
+    if (!parser.needsBodyLimit())
+        return;
+    const ServerConfig *server = selectServer(parser.getRequest());
+    parser.setMaxBodySize(server == NULL ? 1024 * 1024 : server->client_max_body_size);
+    parser.feed("");
+}
+
+void PollManager::handleRequest(const HttpRequest& req, std::string& response, ClientConnection &conn)
 {
     struct stat path_stat;
     std::string filePath;
 
-    const ServerConfig* server = NULL;
-    {
-        std::string host;
-        std::map<std::string, std::string>::const_iterator hostIt = req.headers.find("host");
-        if (hostIt != req.headers.end())
-            host = hostIt->second;
-        int port = 8080;
-        size_t colonPos = host.find(':');
-        if (colonPos != std::string::npos)
-            port = std::atoi(host.substr(colonPos + 1).c_str());
-        for (size_t i = 0; i < configs.size(); ++i)
-        {
-            if (configs[i].port == port)
-            {
-                server = &configs[i];
-                break;
-            }
-        }
-        if (server == NULL && !configs.empty())
-            server = &configs[0]; // fallback to first server if no match
-    }
+    const ServerConfig* server = selectServer(req);
     if (server == NULL)
     {
         response = buildErrorResponse(500, NULL, false);

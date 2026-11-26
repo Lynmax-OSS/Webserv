@@ -52,7 +52,9 @@ class PollManager
 		void	kickIdleClients(time_t now, int timeout_sec);
 
 		// Main handler
-		void	handleRequest(const HttpRequest& req, const std::vector<ServerConfig>& configs, std::string& response, ClientConnection& conn);
+		const ServerConfig *selectServer(const HttpRequest &req) const;
+		void	applyBodyLimit(ClientConnection &conn);
+		void	handleRequest(const HttpRequest& req, std::string& response, ClientConnection& conn);
 		std::string handleCGI(const HttpRequest &req, const ServerConfig *server, const LocationConfig *location, const std::string &scriptPath, ClientConnection &conn);
 		bool	runCGI(std::string cgi_path, std::string script_path, const HttpRequest &req, int client_fd, const ServerConfig *server);
 		void	handleCGIEvent(int fd, short revents);

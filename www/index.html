@@ -93,10 +93,11 @@
             var out  = document.getElementById("upload-response");
             if (!file) { out.textContent = "No file selected"; return; }
 
-            var formData = new FormData();
-            formData.append("file", file);
-
-            fetch("/upload", { method: "POST", body: formData })
+            fetch("/upload/" + encodeURIComponent(file.name), {
+                method: "POST",
+                headers: { "Content-Type": "application/octet-stream" },
+                body: file
+            })
                 .then(function(res) {
                     return res.text().then(function(text) {
                         out.textContent = "Status: " + res.status + "\n" + text;

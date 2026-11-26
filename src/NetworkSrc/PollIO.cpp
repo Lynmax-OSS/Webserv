@@ -40,6 +40,7 @@ ssize_t PollManager::readFromClient(int fd)
         return -1;
 
     it->second.getParser().feed(std::string(buf, bytes));
+    applyBodyLimit(it->second);
     it->second.updateActivity();
     return bytes;
     // "GET / HTTP/1.1\r\nHost: localhost:8080\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n"

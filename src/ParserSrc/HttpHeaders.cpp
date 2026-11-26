@@ -29,6 +29,7 @@ void HttpParser::_finishHeaders() {
             return ;
         }
     }
+    _needs_body_limit = true;
 
     bool is_chunked = false;
     if (_request.headers.find("transfer-encoding") != _request.headers.end()) {

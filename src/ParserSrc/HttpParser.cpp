@@ -13,6 +13,11 @@ void HttpParser::reset() {
 
 void HttpParser::setMaxBodySize(size_t size) {
     _max_body_size = size; //for setting body limit
+    _needs_body_limit = false;
+}
+
+bool HttpParser::needsBodyLimit() const {
+    return _needs_body_limit;
 }
 
 void HttpParser::reset(bool keep_buffer) { //clear, maybe keep leftover bytes
@@ -24,6 +29,7 @@ void HttpParser::reset(bool keep_buffer) { //clear, maybe keep leftover bytes
     _chunk_size = 0;
     _chunk_bytes_read = 0;
     _waiting_for_chunk_end = false;
+    _needs_body_limit = false;
     _start_time = time(NULL);
 }
 
@@ -50,6 +56,8 @@ void HttpParser::feed(const std::string& data) {
         else if (_state == BODY)                 { _processBody();        } 
         else if (_state == PARSING_CHUNKED_SIZE) { _processChunkedSize(); } 
         else if (_state == PARSING_CHUNKED_DATA) { _processChunkedData(); }
+        if (_needs_body_limit)
+            break;
         //if no byte consumed and no state change, stop
         if (_buffer.size() == buffer_before && _state == state_before)
             break ;
