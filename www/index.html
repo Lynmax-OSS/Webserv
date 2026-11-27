@@ -81,19 +81,36 @@
             var out  = document.getElementById("get-response");
             fetch(path, { method: "GET" })
                 .then(function(res) {
-                    return res.text().then(function(text) {
-                        out.textContent = "Status: " + res.status + "\n" + text;
+                    var type = res.headers.get("content-type") || "";
+                    if (type.indexOf("image/") === 0) {
+                        return res.blob().then(function(blob) {
+                            var img = document.createElement("img");
+                            img.src = URL.createObjectURL(blob);
+                            img.style.maxWidth = "100%";
+                            out.textContent = "Status: " + res.status + " (" + type + ")";
+                            out.appendChild(document.createElement("br"));
+                            out.appendChild(img);
+                        });
+                    }
+                    if (type.indexOf("text/") === 0 || type.indexOf("json") !== -1 || type === "") {
+                        return res.text().then(function(text) {
+                            out.textContent = "Status: " + res.status + "\n" + text;
+                        });
+                    }
+                    return res.blob().then(function(blob) {
+                        out.textContent = "Status: " + res.status + " (" + type + ", "
+                            + blob.size + " bytes, binary not displayed)";
                     });
-                })
-                .catch(function(err) { out.textContent = "Error: " + err; });
-        }
+        })
+        .catch(function(err) { out.textContent = "Error: " + err; });
+}
 
         function doUpload() {
             var file = document.getElementById("upload-file").files[0];
             var out  = document.getElementById("upload-response");
             if (!file) { out.textContent = "No file selected"; return; }
 
-            fetch("/upload/" + encodeURIComponent(file.name), {
+            fetch("/uploads/" + encodeURIComponent(file.name), {
                 method: "POST",
                 headers: { "Content-Type": "application/octet-stream" },
                 body: file
