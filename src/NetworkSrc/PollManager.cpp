@@ -619,7 +619,7 @@ void PollManager::run() // infinite loop that asks the OS if anyone is ready, th
         // POLLOUT on client fd	|handleClientWrite()     - can send
         for (size_t i = 0; i < _poll_fds.size(); i++)
         {
-            if (_poll_fds[i].fd < 0)
+            if (_poll_fds[i].fd < 0) // throw out dead fd in the next loop with updatePollFds()
                 continue;
             if (_poll_fds[i].revents == 0) // if nothing happened on this fd, skip it
                                            // events is what you ask for, revents(returned events) is what you get back
